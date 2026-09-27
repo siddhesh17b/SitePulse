@@ -169,11 +169,20 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
       }
 
-      .sp-launcher svg {
+      .sp-launcher .sp-launcher-icon {
         width: 28px;
         height: 28px;
-        fill: currentColor;
-        transition: transform 0.2s ease;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+      .sp-launcher .sp-launcher-chat {
+        fill: #ffffff;
+      }
+      .sp-launcher .sp-launcher-close {
+        stroke: #ffffff;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
       }
 
       .sp-badge {
@@ -248,17 +257,32 @@
       }
 
       .sp-close-btn {
-        background: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.14);
         border: none;
         color: #ffffff;
         cursor: pointer;
-        opacity: 0.8;
-        padding: 4px;
-        border-radius: 6px;
+        transition: background 0.15s ease, transform 0.1s ease;
+        padding: 0;
       }
       .sp-close-btn:hover {
         opacity: 1;
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.28);
+        transform: scale(1.05);
+      }
+      .sp-close-btn svg {
+        width: 18px;
+        height: 18px;
+        stroke: #ffffff;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
       }
 
       /* Tab Nav */
@@ -552,9 +576,14 @@
   function renderWidgetDOM() {
     const launcher = document.createElement('div');
     launcher.className = 'sp-launcher';
+    launcher.id = 'sp-launcher';
+    launcher.setAttribute('aria-label', 'Open support chat');
     launcher.innerHTML = `
-      <svg id="sp-icon-chat" viewBox="0 0 24 24">
+      <svg id="sp-icon-chat" class="sp-launcher-icon sp-launcher-chat" viewBox="0 0 24 24">
         <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+      </svg>
+      <svg id="sp-icon-close" class="sp-launcher-icon sp-launcher-close" viewBox="0 0 24 24" style="display: none;">
+        <path d="M18 6L6 18M6 6l12 12"/>
       </svg>
       <div class="sp-badge" id="sp-badge" style="display: none;">0</div>
     `;
@@ -570,10 +599,9 @@
           <h3 id="sp-title">${escapeHTML(widgetSettings.title)}</h3>
           <p id="sp-subtitle">${escapeHTML(widgetSettings.subtitle)}</p>
         </div>
-        <button class="sp-close-btn" id="sp-close-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="6"></line>
+        <button class="sp-close-btn" id="sp-close-btn" title="Close" aria-label="Close chat">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
       </div>
@@ -833,12 +861,18 @@
   function toggleWidget() {
     isOpen = !isOpen;
     const win = shadowRoot.getElementById('sp-window');
+    const iconChat = shadowRoot.getElementById('sp-icon-chat');
+    const iconClose = shadowRoot.getElementById('sp-icon-close');
     if (isOpen) {
       win.classList.add('open');
+      if (iconChat) iconChat.style.display = 'none';
+      if (iconClose) iconClose.style.display = 'block';
       unreadCount = 0;
       updateBadge();
     } else {
       win.classList.remove('open');
+      if (iconChat) iconChat.style.display = 'block';
+      if (iconClose) iconClose.style.display = 'none';
     }
   }
 
