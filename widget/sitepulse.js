@@ -81,7 +81,7 @@
 
   // 4. Fetch Widget Settings & Render
   let widgetSettings = {
-    primaryColor: '#19aea4',
+    primaryColor: '#000000',
     title: 'SitePulse Support',
     subtitle: 'Ask us anything or leave feedback',
     greeting: 'Hi there! How can we help you today?',
@@ -134,7 +134,7 @@
   }
 
   function getContrastColors(hexColor) {
-    let hex = (hexColor || '#19aea4').replace('#', '').trim();
+    let hex = (hexColor || '#000000').replace('#', '').trim();
     if (hex.length === 3) {
       hex = hex.split('').map((c) => c + c).join('');
     }
@@ -150,7 +150,7 @@
       textMuted: isLight ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.88)',
       launcherBorder: isLight ? '1px solid #cbd5e1' : 'none',
       headerBorder: isLight ? '1px solid #e2e8f0' : 'none',
-      activeTab: isLight ? '#0f172a' : (hexColor || '#19aea4'),
+      activeTab: isLight ? '#0f172a' : (hexColor || '#000000'),
       closeBtnBg: isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.14)',
       closeBtnHover: isLight ? 'rgba(0, 0, 0, 0.14)' : 'rgba(255, 255, 255, 0.28)',
       bubbleBorder: isLight ? '1px solid #cbd5e1' : 'none',
@@ -162,7 +162,7 @@
 
   function injectStyles() {
     const isLeft = widgetSettings.position === 'left';
-    const primary = widgetSettings.primaryColor || '#19aea4';
+    const primary = widgetSettings.primaryColor || '#000000';
     const contrast = getContrastColors(primary);
 
     const style = document.createElement('style');
@@ -198,20 +198,11 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
       }
 
-      .sp-launcher .sp-launcher-icon {
+      .sp-launcher svg {
         width: 28px;
         height: 28px;
-        transition: transform 0.2s ease, opacity 0.2s ease;
-      }
-      .sp-launcher .sp-launcher-chat {
         fill: ${contrast.text};
-      }
-      .sp-launcher .sp-launcher-close {
-        stroke: ${contrast.text};
-        stroke-width: 2.5;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        fill: none;
+        transition: transform 0.2s ease;
       }
 
       .sp-badge {
@@ -351,7 +342,8 @@
       /* Content Area */
       .sp-content {
         flex: 1;
-        overflow-y: auto;
+        min-height: 0;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
         position: relative;
@@ -360,12 +352,19 @@
       .sp-tab-panel {
         display: none;
         flex: 1;
+        min-height: 0;
         flex-direction: column;
         position: relative;
+        overflow: hidden;
       }
 
       .sp-tab-panel.active {
         display: flex;
+      }
+
+      #sp-panel-feedback,
+      #sp-panel-bug {
+        overflow-y: auto;
       }
 
       /* Chat Top Banner & Reset Button */
@@ -443,6 +442,7 @@
 
       .sp-chat-messages {
         flex: 1;
+        min-height: 0;
         padding: 16px;
         overflow-y: auto;
         display: flex;
@@ -500,6 +500,7 @@
         border-top: 1px solid #e2e8f0;
         display: flex;
         gap: 8px;
+        flex-shrink: 0;
       }
 
       .sp-chat-input {
@@ -622,11 +623,8 @@
     launcher.id = 'sp-launcher';
     launcher.setAttribute('aria-label', 'Open support chat');
     launcher.innerHTML = `
-      <svg id="sp-icon-chat" class="sp-launcher-icon sp-launcher-chat" viewBox="0 0 24 24">
+      <svg id="sp-icon-chat" viewBox="0 0 24 24">
         <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-      </svg>
-      <svg id="sp-icon-close" class="sp-launcher-icon sp-launcher-close" viewBox="0 0 24 24" style="display: none;">
-        <path d="M18 6L6 18M6 6l12 12"/>
       </svg>
       <div class="sp-badge" id="sp-badge" style="display: none;">0</div>
     `;
@@ -904,18 +902,20 @@
   function toggleWidget() {
     isOpen = !isOpen;
     const win = shadowRoot.getElementById('sp-window');
-    const iconChat = shadowRoot.getElementById('sp-icon-chat');
-    const iconClose = shadowRoot.getElementById('sp-icon-close');
     if (isOpen) {
       win.classList.add('open');
-      if (iconChat) iconChat.style.display = 'none';
-      if (iconClose) iconClose.style.display = 'block';
       unreadCount = 0;
       updateBadge();
+      if (activeTab === 'chat') {
+        const chatArea = shadowRoot.getElementById('sp-chat-messages');
+        const input = shadowRoot.getElementById('sp-chat-input');
+        requestAnimationFrame(() => {
+          if (chatArea) chatArea.scrollTop = chatArea.scrollHeight;
+          if (input) input.focus();
+        });
+      }
     } else {
       win.classList.remove('open');
-      if (iconChat) iconChat.style.display = 'block';
-      if (iconClose) iconClose.style.display = 'none';
     }
   }
 
@@ -927,6 +927,14 @@
     shadowRoot.querySelectorAll('.sp-tab-panel').forEach((p) => {
       p.classList.toggle('active', p.id === `sp-panel-${tab}`);
     });
+    if (tab === 'chat') {
+      const chatArea = shadowRoot.getElementById('sp-chat-messages');
+      const input = shadowRoot.getElementById('sp-chat-input');
+      requestAnimationFrame(() => {
+        if (chatArea) chatArea.scrollTop = chatArea.scrollHeight;
+        if (input) input.focus();
+      });
+    }
   }
 
   let selectedRating = 5;
@@ -972,6 +980,9 @@
     if (conv.messages && conv.messages.length > 0) {
       conv.messages.forEach((msg) => {
         appendMessage(msg.content, msg.senderType, msg.senderName, false);
+      });
+      requestAnimationFrame(() => {
+        chatArea.scrollTop = chatArea.scrollHeight;
       });
     } else {
       chatArea.innerHTML = `
@@ -1093,6 +1104,11 @@
           if (titleEl) titleEl.textContent = widgetSettings.title;
           if (subtitleEl) subtitleEl.textContent = widgetSettings.subtitle;
         });
+
+        // Listen for chats wiped by admin
+        socket.on('all_conversations_deleted', () => {
+          handleResetSession(false);
+        });
       })
       .catch((err) => console.error('[SitePulse] Chat init failed:', err));
   }
@@ -1111,6 +1127,13 @@
     });
 
     input.value = '';
+    input.focus();
+    const chatArea = shadowRoot.getElementById('sp-chat-messages');
+    if (chatArea) {
+      requestAnimationFrame(() => {
+        chatArea.scrollTop = chatArea.scrollHeight;
+      });
+    }
   }
 
   function appendMessage(text, senderType, senderName, scroll = true) {
@@ -1123,7 +1146,9 @@
     `;
     chatArea.appendChild(msgDiv);
     if (scroll) {
-      chatArea.scrollTop = chatArea.scrollHeight;
+      requestAnimationFrame(() => {
+        chatArea.scrollTop = chatArea.scrollHeight;
+      });
     }
   }
 

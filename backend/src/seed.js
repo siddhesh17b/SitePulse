@@ -13,7 +13,7 @@ async function seed() {
           domain: 'localhost',
           apiKey: 'sp_demo_12345',
           widgetSettings: {
-            primaryColor: '#2563eb',
+            primaryColor: '#000000',
             title: 'SitePulse Support',
             subtitle: 'We are here to help!',
             greeting: 'Hi there! How can we help you today?',

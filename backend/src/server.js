@@ -161,7 +161,7 @@ app.post('/api/v1/sites', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Name and domain are required' });
     }
     const defaultSettings = {
-      primaryColor: '#19aea4',
+      primaryColor: '#000000',
       title: 'SitePulse Support',
       subtitle: 'Ask us anything or leave feedback',
       greeting: 'Hi there! How can we help you today?',
@@ -226,6 +226,64 @@ app.delete('/api/v1/sites/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Protected: Delete all conversations for a site (Requires Admin Password)
+app.delete('/api/v1/sites/:id/conversations', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Your admin account password is required to delete all chats.' });
+    }
+
+    // Verify user password
+    const adminUser = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+
+    if (!adminUser) {
+      return res.status(404).json({ error: 'Admin account not found.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, adminUser.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Incorrect password. Chat deletion cancelled.' });
+    }
+
+    const site = await prisma.site.findUnique({ where: { id } });
+    if (!site) {
+      return res.status(404).json({ error: 'Site not found.' });
+    }
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to delete conversations for this site.' });
+    }
+
+    // Delete messages first, then conversations
+    await prisma.message.deleteMany({
+      where: {
+        conversation: {
+          siteId: id
+        }
+      }
+    });
+
+    const deletedConvs = await prisma.conversation.deleteMany({
+      where: { siteId: id }
+    });
+
+    // Notify any active clients connected to this site
+    io.to(`site_${site.apiKey}`).emit('all_conversations_deleted', { siteId: id });
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${deletedConvs.count} conversation(s).`,
+      count: deletedConvs.count
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. Widget Customization / Configuration API
 // Public: Fetched by the embed script to customize itself dynamically on client website
 app.get('/api/v1/widget/config', async (req, res) => {
@@ -275,6 +333,37 @@ app.put('/api/v1/widget/config', authMiddleware, async (req, res) => {
 
     // Notify any active clients or dashboard of settings update
     io.to(`site_${siteKey}`).emit('widget_settings_updated', settings);
+
+    res.json({ success: true, settings: updatedSite.widgetSettings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Protected: Update Widget Customization Settings by Site ID
+app.put('/api/v1/sites/:id/settings', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { settings } = req.body;
+    if (!settings) {
+      return res.status(400).json({ error: 'Settings object is required' });
+    }
+
+    const site = await prisma.site.findUnique({ where: { id } });
+    if (!site) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to update settings for this site' });
+    }
+
+    const updatedSite = await prisma.site.update({
+      where: { id },
+      data: { widgetSettings: settings }
+    });
+
+    // Notify any active clients or dashboard of settings update
+    io.to(`site_${site.apiKey}`).emit('widget_settings_updated', settings);
 
     res.json({ success: true, settings: updatedSite.widgetSettings });
   } catch (err) {

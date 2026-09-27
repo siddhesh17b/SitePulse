@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, 
+  MessageSquareX,
   Palette, 
   Bug, 
   BarChart3, 
@@ -40,8 +41,8 @@ function SitePulseLogo({ className = "w-9 h-9" }) {
       <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-xs">
         <defs>
           <linearGradient id="spGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#19aea4" />
-            <stop offset="100%" stopColor="#0d8b82" />
+            <stop offset="0%" stopColor="#287170" />
+            <stop offset="100%" stopColor="#1e5857" />
           </linearGradient>
         </defs>
         <rect width="40" height="40" rx="11" fill="url(#spGrad)" />
@@ -59,7 +60,7 @@ function SitePulseLogo({ className = "w-9 h-9" }) {
 }
 
 function getContrastColors(hexColor) {
-  let hex = (hexColor || '#19aea4').replace('#', '').trim();
+  let hex = (hexColor || '#000000').replace('#', '').trim();
   if (hex.length === 3) {
     hex = hex.split('').map((c) => c + c).join('');
   }
@@ -74,7 +75,7 @@ function getContrastColors(hexColor) {
     text: isLight ? '#0f172a' : '#ffffff',
     textMuted: isLight ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.88)',
     headerBorder: isLight ? '1px solid #e2e8f0' : 'none',
-    activeTab: isLight ? '#0f172a' : (hexColor || '#19aea4'),
+    activeTab: isLight ? '#0f172a' : (hexColor || '#000000'),
     closeBtnBg: isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.14)',
     bubbleBorder: isLight ? '1px solid #cbd5e1' : 'none',
     launcherBorder: isLight ? '1px solid #cbd5e1' : 'none'
@@ -104,12 +105,19 @@ export default function App() {
     error: '',
     loading: false
   });
+  const [deleteChatsModal, setDeleteChatsModal] = useState({
+    open: false,
+    site: null,
+    password: '',
+    error: '',
+    loading: false
+  });
   const [newSiteForm, setNewSiteForm] = useState({ name: '', domain: '' });
   const [copiedSnippet, setCopiedSnippet] = useState(false);
 
   // Widget Customizer State
   const [settings, setSettings] = useState({
-    primaryColor: '#19aea4',
+    primaryColor: '#000000',
     title: 'SitePulse Support',
     subtitle: 'We are here to help!',
     greeting: 'Hi there! How can we help you today?',
@@ -310,6 +318,57 @@ export default function App() {
     }
   };
 
+  // Delete All Chats for Site with Admin Password Verification
+  const promptDeleteChats = (site) => {
+    const target = site || activeSite;
+    if (!target) return;
+    setDeleteChatsModal({
+      open: true,
+      site: target,
+      password: '',
+      error: '',
+      loading: false
+    });
+  };
+
+  const handleConfirmDeleteChats = async (e) => {
+    e.preventDefault();
+    if (!deleteChatsModal.site || !token) return;
+    if (!deleteChatsModal.password) {
+      setDeleteChatsModal(prev => ({ ...prev, error: 'Please enter your admin password' }));
+      return;
+    }
+
+    setDeleteChatsModal(prev => ({ ...prev, loading: true, error: '' }));
+    try {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/sites/${deleteChatsModal.site.id}/conversations`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deleteChatsModal.password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setConversations([]);
+        setSelectedConv(null);
+        setMessages([]);
+        setUnreadCounts({});
+        setDeleteChatsModal({ open: false, site: null, password: '', error: '', loading: false });
+      } else {
+        setDeleteChatsModal(prev => ({
+          ...prev,
+          loading: false,
+          error: data.error || 'Failed to delete conversations'
+        }));
+      }
+    } catch (e) {
+      setDeleteChatsModal(prev => ({
+        ...prev,
+        loading: false,
+        error: e.message || 'An unexpected error occurred'
+      }));
+    }
+  };
+
   // 3. Socket.IO Connection for Real-Time Chat
   useEffect(() => {
     if (!activeSite) return;
@@ -352,6 +411,13 @@ export default function App() {
       if (selectedConv && conversationId === selectedConv.id && senderType === 'visitor') {
         setIsVisitorTyping(isTyping);
       }
+    });
+
+    s.on('all_conversations_deleted', () => {
+      setConversations([]);
+      setSelectedConv(null);
+      setMessages([]);
+      setUnreadCounts({});
     });
 
     return () => s.disconnect();
@@ -483,16 +549,19 @@ export default function App() {
     setSavingSettings(true);
     setSaveSuccess(false);
     try {
-      const res = await authFetch(`${BACKEND_URL}/api/v1/sites/${activeSite.id}/settings`, {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/widget/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings })
+        body: JSON.stringify({ siteKey: activeSite.apiKey, settings })
       });
       if (res.ok) {
+        setActiveSite(prev => ({ ...prev, widgetSettings: settings }));
+        setSites(prev => prev.map(s => s.id === activeSite.id ? { ...s, widgetSettings: settings } : s));
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2500);
       } else {
-        alert('Failed to save settings');
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to save settings: ${errData.error || res.statusText}`);
       }
     } catch (e) {
       alert('Error: ' + e.message);
@@ -514,7 +583,7 @@ export default function App() {
 
   // ==========================================
   // AUTH SCREEN (LOGIN / INITIAL SIGNUP)
-  // Modern Clean White & #19aea4 Theme
+  // Modern Clean White & #287170 Theme
   // ==========================================
   if (authLoading) {
     return (
@@ -529,7 +598,7 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-[#19aea4]/20 selection:text-[#19aea4]">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-[#287170]/20 selection:text-[#287170]">
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
           <div className="flex justify-center mb-4">
             <SitePulseLogo className="w-12 h-12 shadow-sm" />
@@ -566,7 +635,7 @@ export default function App() {
                       value={authForm.name}
                       onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
                       placeholder="e.g. Sarah Connor"
-                      className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#19aea4] focus:ring-2 focus:ring-[#19aea4]/15 transition"
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
                     />
                   </div>
                 </div>
@@ -584,7 +653,7 @@ export default function App() {
                     value={authForm.email}
                     onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
                     placeholder="admin@example.com"
-                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#19aea4] focus:ring-2 focus:ring-[#19aea4]/15 transition"
+                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
                   />
                 </div>
               </div>
@@ -602,14 +671,14 @@ export default function App() {
                     value={authForm.password}
                     onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#19aea4] focus:ring-2 focus:ring-[#19aea4]/15 transition"
+                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full mt-2 bg-[#19aea4] hover:bg-[#169d94] text-white font-semibold py-3.5 rounded-xl text-base shadow-sm shadow-[#19aea4]/25 transition duration-150 active:scale-[0.99] cursor-pointer"
+                className="w-full mt-2 bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-3.5 rounded-xl text-base shadow-sm shadow-[#287170]/25 transition duration-150 active:scale-[0.99] cursor-pointer"
               >
                 {authMode === 'signup' ? 'Complete Setup' : 'Sign In'}
               </button>
@@ -621,7 +690,7 @@ export default function App() {
                   Already have an account?{' '}
                   <button
                     onClick={() => { setAuthMode('login'); setAuthError(''); }}
-                    className="text-[#19aea4] hover:underline font-semibold transition cursor-pointer"
+                    className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
                   >
                     Sign In
                   </button>
@@ -631,7 +700,7 @@ export default function App() {
                   First-time admin setup?{' '}
                   <button
                     onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                    className="text-[#19aea4] hover:underline font-semibold transition cursor-pointer"
+                    className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
                   >
                     Create Account
                   </button>
@@ -661,7 +730,7 @@ export default function App() {
   });
 
   // ==========================================
-  // AUTHENTICATED DASHBOARD (WHITE & #19aea4 THEME)
+  // AUTHENTICATED DASHBOARD (WHITE & #287170 THEME)
   // ==========================================
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
@@ -707,7 +776,7 @@ export default function App() {
                   setShowNewSiteModal(true);
                   setMobileMenuOpen(false);
                 }}
-                className="text-xs sm:text-sm text-[#19aea4] hover:text-[#169d94] flex items-center gap-1 font-semibold transition cursor-pointer"
+                className="text-xs sm:text-sm text-[#287170] hover:text-[#205d5c] flex items-center gap-1 font-semibold transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>New Site</span>
@@ -721,7 +790,7 @@ export default function App() {
                   const s = sites.find(item => item.id === e.target.value);
                   if (s) setActiveSite(s);
                 }}
-                className="w-full bg-slate-50 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 border border-slate-200 font-medium focus:outline-none focus:border-[#19aea4] focus:ring-1 focus:ring-[#19aea4]/20 appearance-none cursor-pointer"
+                className="w-full bg-slate-50 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 border border-slate-200 font-medium focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20 appearance-none cursor-pointer"
               >
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -743,7 +812,7 @@ export default function App() {
               }}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'chat'
-                  ? 'bg-[#19aea4] text-white shadow-sm shadow-[#19aea4]/25'
+                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
@@ -752,7 +821,7 @@ export default function App() {
                 <span>Live Support Inbox</span>
               </div>
               {totalUnreadCount > 0 ? (
-                <span className="bg-white text-[#19aea4] text-xs px-2 py-0.5 rounded-full font-bold shadow-xs">
+                <span className="bg-white text-[#287170] text-xs px-2 py-0.5 rounded-full font-bold shadow-xs">
                   {totalUnreadCount} new
                 </span>
               ) : conversations.length > 0 ? (
@@ -770,7 +839,7 @@ export default function App() {
               }}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'customizer'
-                  ? 'bg-[#19aea4] text-white shadow-sm shadow-[#19aea4]/25'
+                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
@@ -786,7 +855,7 @@ export default function App() {
               }}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'feedback'
-                  ? 'bg-[#19aea4] text-white shadow-sm shadow-[#19aea4]/25'
+                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
@@ -802,7 +871,7 @@ export default function App() {
               }}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'analytics'
-                  ? 'bg-[#19aea4] text-white shadow-sm shadow-[#19aea4]/25'
+                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
@@ -818,7 +887,7 @@ export default function App() {
               }}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'settings'
-                  ? 'bg-[#19aea4] text-white shadow-sm shadow-[#19aea4]/25'
+                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
@@ -833,13 +902,13 @@ export default function App() {
           {activeSite && (
             <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
               <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Site Key</div>
-              <div className="font-mono text-sm text-[#19aea4] font-semibold mt-1 truncate select-all">{activeSite.apiKey}</div>
+              <div className="font-mono text-sm text-[#287170] font-semibold mt-1 truncate select-all">{activeSite.apiKey}</div>
               <div className="mt-2.5 pt-2 border-t border-slate-200/60">
                 <button
                   onClick={copyEmbedCode}
                   className="w-full text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition cursor-pointer"
                 >
-                  {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#19aea4]" />}
+                  {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#287170]" />}
                   <span>{copiedSnippet ? 'Copied script!' : 'Copy embed script'}</span>
                 </button>
               </div>
@@ -897,7 +966,7 @@ export default function App() {
         <div className="flex-1 overflow-hidden min-w-0">
           {!activeSite ? (
             <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-white">
-              <div className="w-14 h-14 bg-[#19aea4]/10 text-[#19aea4] rounded-2xl flex items-center justify-center mb-4">
+              <div className="w-14 h-14 bg-[#287170]/10 text-[#287170] rounded-2xl flex items-center justify-center mb-4">
                 <Layers className="w-7 h-7" />
               </div>
               <h3 className="text-base font-bold text-slate-900">No Website Selected</h3>
@@ -906,7 +975,7 @@ export default function App() {
               </p>
               <button
                 onClick={() => setShowNewSiteModal(true)}
-                className="bg-[#19aea4] hover:bg-[#169d94] text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm shadow-[#19aea4]/25 transition flex items-center gap-1.5 cursor-pointer"
+                className="bg-[#287170] hover:bg-[#205d5c] text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm shadow-[#287170]/25 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Your First Website</span>
@@ -922,7 +991,7 @@ export default function App() {
                       <span className="text-sm font-bold text-slate-800 uppercase tracking-wider">
                         Conversations ({filteredConversations.length})
                       </span>
-                      <button onClick={fetchConversations} className="text-sm text-[#19aea4] hover:text-[#169d94] font-semibold transition cursor-pointer">
+                      <button onClick={fetchConversations} className="text-sm text-[#287170] hover:text-[#205d5c] font-semibold transition cursor-pointer">
                         Refresh
                       </button>
                     </div>
@@ -936,31 +1005,31 @@ export default function App() {
                           placeholder="Search visitor, email..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full bg-slate-50 text-sm pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:bg-white focus:border-[#19aea4] font-medium placeholder-slate-400"
+                          className="w-full bg-slate-50 text-sm pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:bg-white focus:border-[#287170] font-medium placeholder-slate-400"
                         />
                       </div>
                       <div className="flex gap-1.5 text-xs overflow-x-auto pb-0.5">
                         <button
                           onClick={() => setStatusFilter('all')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'all' ? 'bg-[#19aea4] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'all' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                         >
                           All ({conversations.length})
                         </button>
                         <button
                           onClick={() => setStatusFilter('unread')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'unread' ? 'bg-[#19aea4] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'unread' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                         >
                           Unread ({conversations.filter(c => (unreadCounts[c.id] || 0) > 0).length})
                         </button>
                         <button
                           onClick={() => setStatusFilter('open')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'open' ? 'bg-[#19aea4] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'open' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                         >
                           Open ({conversations.filter(c => c.status !== 'resolved').length})
                         </button>
                         <button
                           onClick={() => setStatusFilter('resolved')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'resolved' ? 'bg-[#19aea4] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'resolved' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                         >
                           Resolved ({conversations.filter(c => c.status === 'resolved').length})
                         </button>
@@ -984,13 +1053,13 @@ export default function App() {
                               key={conv.id}
                               onClick={() => handleSelectConversation(conv)}
                               className={`p-4 cursor-pointer transition ${
-                                isSelected ? 'bg-[#19aea4]/5 border-l-4 border-[#19aea4]' : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                isSelected ? 'bg-[#287170]/5 border-l-4 border-[#287170]' : 'hover:bg-slate-50 border-l-4 border-transparent'
                               }`}
                             >
                               <div className="flex justify-between items-start gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   {unreadCount > 0 && (
-                                    <span className="w-2 h-2 rounded-full bg-[#19aea4] shrink-0" />
+                                    <span className="w-2 h-2 rounded-full bg-[#287170] shrink-0" />
                                   )}
                                   <span className={`text-base truncate ${unreadCount > 0 ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
                                     {conv.visitorName || conv.visitorEmail || `Visitor #${conv.visitorId.slice(-6)}`}
@@ -1001,14 +1070,14 @@ export default function App() {
                                 </span>
                               </div>
                               {conv.visitorEmail && (
-                                <div className="text-xs sm:text-sm text-[#19aea4] font-medium truncate mt-1 flex items-center gap-1.5">
-                                  <Mail className="w-3.5 h-3.5 text-[#19aea4] shrink-0" />
+                                <div className="text-xs sm:text-sm text-[#287170] font-medium truncate mt-1 flex items-center gap-1.5">
+                                  <Mail className="w-3.5 h-3.5 text-[#287170] shrink-0" />
                                   <span className="truncate">{conv.visitorEmail}</span>
                                 </div>
                               )}
                               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                                 {unreadCount > 0 && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-[#19aea4] text-white">
+                                  <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-[#287170] text-white">
                                     {unreadCount} new
                                   </span>
                                 )}
@@ -1017,7 +1086,7 @@ export default function App() {
                                     Identified: #{conv.externalId}
                                   </span>
                                 )}
-                                <span className={`text-xs px-2 py-0.5 rounded-md font-semibold ${isResolved ? 'bg-slate-100 text-slate-600' : 'bg-[#19aea4]/10 text-[#19aea4]'}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded-md font-semibold ${isResolved ? 'bg-slate-100 text-slate-600' : 'bg-[#287170]/10 text-[#287170]'}`}>
                                   {isResolved ? 'Resolved' : 'Open'}
                                 </span>
                               </div>
@@ -1044,7 +1113,7 @@ export default function App() {
                             {selectedConv.visitorName || 'Visitor'}
                           </span>
                           {selectedConv.visitorEmail && (
-                            <span className="text-xs sm:text-sm font-mono text-[#19aea4] bg-[#19aea4]/10 px-2.5 py-1 rounded-full border border-[#19aea4]/25 hidden sm:flex items-center gap-1.5">
+                            <span className="text-xs sm:text-sm font-mono text-[#287170] bg-[#287170]/10 px-2.5 py-1 rounded-full border border-[#287170]/25 hidden sm:flex items-center gap-1.5">
                               <Mail className="w-3.5 h-3.5" />
                               <span className="truncate">{selectedConv.visitorEmail}</span>
                             </span>
@@ -1082,7 +1151,7 @@ export default function App() {
                               <div
                                 className={`max-w-[85%] sm:max-w-[70%] px-4 py-3 rounded-2xl text-base leading-relaxed ${
                                   isAgent
-                                    ? 'bg-[#19aea4] text-white rounded-br-sm shadow-sm'
+                                    ? 'bg-[#287170] text-white rounded-br-sm shadow-sm'
                                     : 'bg-white text-slate-900 border border-slate-200 rounded-bl-sm shadow-xs'
                                 }`}
                               >
@@ -1100,8 +1169,8 @@ export default function App() {
 
                       {/* Visitor Typing Indicator */}
                       {isVisitorTyping && (
-                        <div className="px-4 sm:px-6 py-2.5 text-sm font-medium text-[#19aea4] italic bg-[#19aea4]/5 flex items-center gap-2 border-t border-[#19aea4]/20 animate-pulse">
-                          <span className="w-2 h-2 rounded-full bg-[#19aea4]" />
+                        <div className="px-4 sm:px-6 py-2.5 text-sm font-medium text-[#287170] italic bg-[#287170]/5 flex items-center gap-2 border-t border-[#287170]/20 animate-pulse">
+                          <span className="w-2 h-2 rounded-full bg-[#287170]" />
                           <span>Visitor is typing a reply...</span>
                         </div>
                       )}
@@ -1121,12 +1190,12 @@ export default function App() {
                             }
                           }}
                           placeholder="Type your reply to the visitor..."
-                          className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:border-[#19aea4] placeholder-slate-400"
+                          className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:border-[#287170] placeholder-slate-400"
                         />
                         <button
                           type="submit"
                           disabled={!replyText.trim()}
-                          className="bg-[#19aea4] hover:bg-[#169d94] disabled:opacity-50 text-white px-5 sm:px-6 py-3 rounded-xl font-semibold text-base flex items-center gap-2 transition shrink-0 shadow-sm cursor-pointer"
+                          className="bg-[#287170] hover:bg-[#205d5c] disabled:opacity-50 text-white px-5 sm:px-6 py-3 rounded-xl font-semibold text-base flex items-center gap-2 transition shrink-0 shadow-sm cursor-pointer"
                         >
                           <Send className="w-5 h-5" />
                           <span className="hidden sm:inline">Send</span>
@@ -1171,7 +1240,7 @@ export default function App() {
                           type="text"
                           value={settings.title}
                           onChange={(e) => setSettings({ ...settings, title: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#19aea4]"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
                         />
                       </div>
                       <div>
@@ -1180,7 +1249,7 @@ export default function App() {
                           type="text"
                           value={settings.subtitle}
                           onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#19aea4]"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
                         />
                       </div>
                       <div>
@@ -1189,7 +1258,7 @@ export default function App() {
                           value={settings.greeting}
                           onChange={(e) => setSettings({ ...settings, greeting: e.target.value })}
                           rows={3}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#19aea4]"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
                         />
                       </div>
                     </div>
@@ -1201,7 +1270,7 @@ export default function App() {
                           type="checkbox"
                           checked={settings.enableChat}
                           onChange={(e) => setSettings({ ...settings, enableChat: e.target.checked })}
-                          className="w-5 h-5 accent-[#19aea4] rounded cursor-pointer"
+                          className="w-5 h-5 accent-[#287170] rounded cursor-pointer"
                         />
                         <span className="text-base text-slate-800 font-medium">Enable Live Chat</span>
                       </label>
@@ -1210,7 +1279,7 @@ export default function App() {
                           type="checkbox"
                           checked={settings.enableFeedback}
                           onChange={(e) => setSettings({ ...settings, enableFeedback: e.target.checked })}
-                          className="w-5 h-5 accent-[#19aea4] rounded cursor-pointer"
+                          className="w-5 h-5 accent-[#287170] rounded cursor-pointer"
                         />
                         <span className="text-base text-slate-800 font-medium">Enable Feedback Rating</span>
                       </label>
@@ -1219,7 +1288,7 @@ export default function App() {
                           type="checkbox"
                           checked={settings.enableBugReport}
                           onChange={(e) => setSettings({ ...settings, enableBugReport: e.target.checked })}
-                          className="w-5 h-5 accent-[#19aea4] rounded cursor-pointer"
+                          className="w-5 h-5 accent-[#287170] rounded cursor-pointer"
                         />
                         <span className="text-base text-slate-800 font-medium">Enable Bug Reporting</span>
                       </label>
@@ -1228,7 +1297,7 @@ export default function App() {
                     <button
                       onClick={handleSaveSettings}
                       disabled={savingSettings}
-                      className="w-full bg-[#19aea4] hover:bg-[#169d94] text-white font-semibold py-3 rounded-xl text-base shadow-sm shadow-[#19aea4]/25 transition flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-3 rounded-xl text-base shadow-sm shadow-[#287170]/25 transition flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {saveSuccess ? <Check className="w-5 h-5 text-emerald-300" /> : <Sparkles className="w-5 h-5" />}
                       <span>{savingSettings ? 'Saving...' : (saveSuccess ? 'Changes Published Live!' : 'Save & Publish Changes')}</span>
@@ -1405,7 +1474,7 @@ export default function App() {
                     </div>
                     <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
                       <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Unique Daily Visitors</span>
-                      <div className="text-4xl font-extrabold text-[#19aea4] mt-2">{analytics.uniqueVisitors}</div>
+                      <div className="text-4xl font-extrabold text-[#287170] mt-2">{analytics.uniqueVisitors}</div>
                       <p className="text-sm text-slate-500 mt-1.5 font-medium">Calculated via daily salted cryptographic hashes</p>
                     </div>
                   </div>
@@ -1436,7 +1505,7 @@ export default function App() {
                   {/* Property Details Card */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-[#19aea4]/10 text-[#19aea4] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
                         <Globe className="w-5 h-5" />
                       </div>
                       <div>
@@ -1468,7 +1537,7 @@ export default function App() {
                   {/* Site Key Card */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-[#19aea4]/10 text-[#19aea4] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
                         <Key className="w-5 h-5" />
                       </div>
                       <div>
@@ -1488,7 +1557,7 @@ export default function App() {
                         onClick={copyEmbedCode}
                         className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer"
                       >
-                        {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#19aea4]" />}
+                        {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#287170]" />}
                         <span>{copiedSnippet ? 'Copied' : 'Copy'}</span>
                       </button>
                     </div>
@@ -1497,7 +1566,7 @@ export default function App() {
                   {/* Embed Script Integration */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-[#19aea4]/10 text-[#19aea4] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
                         <Code2 className="w-5 h-5" />
                       </div>
                       <div>
@@ -1514,14 +1583,14 @@ export default function App() {
                         onClick={copyEmbedCode}
                         className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition flex items-center gap-1.5 border border-slate-200 shadow-xs cursor-pointer"
                       >
-                        {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#19aea4]" />}
+                        {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#287170]" />}
                         <span>{copiedSnippet ? 'Copied' : 'Copy Code'}</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Danger Zone: Delete Site */}
-                  <div className="bg-white rounded-2xl border border-rose-200 shadow-xs p-6 space-y-3">
+                  {/* Danger Zone: Destructive Actions */}
+                  <div className="bg-white rounded-2xl border border-rose-200 shadow-xs p-6 space-y-5">
                     <div className="flex items-center gap-3 pb-3 border-b border-rose-100">
                       <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                         <Trash2 className="w-5 h-5" />
@@ -1532,18 +1601,45 @@ export default function App() {
                       </div>
                     </div>
 
-                    <p className="text-sm text-slate-600 leading-relaxed pt-1">
-                      Permanently delete <strong className="text-slate-900">{activeSite.name}</strong> ({activeSite.domain}) and all associated live chats, feedback ratings, bug reports, and analytics data. This action cannot be undone and requires confirmation with your administrator password.
-                    </p>
+                    {/* Action 1: Delete All Chats */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-rose-100 bg-rose-50/40">
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-rose-950 flex items-center gap-2">
+                          <MessageSquareX className="w-4 h-4 text-rose-600" />
+                          <span>Delete All Chats</span>
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed max-w-xl">
+                          Permanently delete all active and resolved visitor conversations, messages, and chat sessions for <strong className="text-slate-900">{activeSite.name}</strong>. Feedback ratings, bug reports, and analytics will remain intact.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => promptDeleteChats(activeSite)}
+                        className="self-start sm:self-center px-4 py-2 bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 hover:text-rose-800 font-semibold rounded-xl text-xs transition flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                      >
+                        <MessageSquareX className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Delete All Chats</span>
+                      </button>
+                    </div>
 
-                    <div className="pt-2">
+                    {/* Action 2: Delete Entire Website Property */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-rose-100 bg-rose-50/40">
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-rose-950 flex items-center gap-2">
+                          <Trash2 className="w-4 h-4 text-rose-600" />
+                          <span>Delete Entire Website Property</span>
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed max-w-xl">
+                          Permanently delete <strong className="text-slate-900">{activeSite.name}</strong> ({activeSite.domain}) and all associated conversations, feedback, bugs, and analytics.
+                        </p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => promptDeleteSite(activeSite)}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition flex items-center gap-2 shadow-xs cursor-pointer"
+                        className="self-start sm:self-center px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
                       >
-                        <Trash2 className="w-4 h-4" />
-                        <span>Delete Website Property</span>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Website</span>
                       </button>
                     </div>
                   </div>
@@ -1570,7 +1666,7 @@ export default function App() {
                   placeholder="e.g. My Online Store"
                   value={newSiteForm.name}
                   onChange={(e) => setNewSiteForm({ ...newSiteForm, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#19aea4]"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
                 />
               </div>
               <div>
@@ -1581,7 +1677,7 @@ export default function App() {
                   placeholder="e.g. store.com"
                   value={newSiteForm.domain}
                   onChange={(e) => setNewSiteForm({ ...newSiteForm, domain: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#19aea4]"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
                 />
               </div>
 
@@ -1595,7 +1691,7 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 text-base font-semibold bg-[#19aea4] hover:bg-[#169d94] text-white rounded-xl shadow-sm shadow-[#19aea4]/25 transition cursor-pointer"
+                  className="px-5 py-2.5 text-base font-semibold bg-[#287170] hover:bg-[#205d5c] text-white rounded-xl shadow-sm shadow-[#287170]/25 transition cursor-pointer"
                 >
                   Create Website
                 </button>
@@ -1656,6 +1752,64 @@ export default function App() {
                   className="px-5 py-2.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
                 >
                   {deleteSiteModal.loading ? 'Verifying...' : 'Confirm & Delete'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Chats Confirmation Modal (Password Verification) */}
+      {deleteChatsModal.open && deleteChatsModal.site && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-rose-100 w-full max-w-md p-7">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
+              <MessageSquareX className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">Delete All Conversations</h3>
+            <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+              You are about to permanently delete all conversations and message transcripts for <strong className="text-slate-900">{deleteChatsModal.site.name}</strong>. Feedback ratings, bug reports, and analytics will not be affected.
+            </p>
+
+            {deleteChatsModal.error && (
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-700">
+                {deleteChatsModal.error}
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmDeleteChats} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Confirm Admin Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="password"
+                    required
+                    autoFocus
+                    placeholder="Enter your admin account password"
+                    value={deleteChatsModal.password}
+                    onChange={(e) => setDeleteChatsModal(prev => ({ ...prev, password: e.target.value, error: '' }))}
+                    className="w-full px-3.5 pl-10 py-2.5 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteChatsModal({ open: false, site: null, password: '', error: '', loading: false })}
+                  className="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleteChatsModal.loading || !deleteChatsModal.password}
+                  className="px-5 py-2.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  {deleteChatsModal.loading ? 'Deleting...' : 'Confirm & Delete All Chats'}
                 </button>
               </div>
             </form>
