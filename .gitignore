@@ -1,28 +1,26 @@
-# ==========================================
-# SitePulse - Root .gitignore
-# ==========================================
+# SitePulse root ignore rules
 
-# Dependencies
+# Dependencies and package-manager state
 node_modules/
-*/node_modules/
 .pnp
 .pnp.js
 
-# Environment Variables & Secrets
+# Environment variables and secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
-!backend/.env.example
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
 
-# Production & Build Outputs
-dist/
-dist-ssr/
-build/
-out/
-*.local
+# Build and deployment output
+**/dist/
+**/dist-ssr/
+**/build/
+**/out/
+**/.next/
+**/.vite/
+.vercel/
 
 # Logs
 logs/
@@ -33,7 +31,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Database & SQLite files (if used for local dev / backups)
+# Local databases and dumps
 *.sqlite
 *.sqlite3
 *.db
@@ -41,11 +39,7 @@ lerna-debug.log*
 *.dump
 *.sql.gz
 
-# Prisma Client Engine binaries
-backend/prisma/*.db
-backend/prisma/*.db-journal
-
-# Editor & IDE Directories
+# Editor and IDE files
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
@@ -56,9 +50,8 @@ backend/prisma/*.db-journal
 *.sln
 *.sw?
 
-# OS Generated Files
+# OS-generated files
 .DS_Store
-.DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
@@ -66,17 +59,17 @@ ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
 
-# Testing & Coverage
+# Testing and caches
 coverage/
 *.lcov
 .nyc_output/
-
-# Cache directories
 .eslintcache
 .cache/
 .temp/
 .tmp/
 .turbo/
-/references
+
+# project unwanted
+/references/
 *.pdf
 /demo-site
