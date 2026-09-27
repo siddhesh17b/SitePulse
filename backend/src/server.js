@@ -25,7 +25,10 @@ app.use('/widget', express.static(path.join(__dirname, '../../widget')));
 app.get('/sitepulse.js', (req, res) => {
   res.sendFile(path.join(__dirname, '../../widget/sitepulse.js'));
 });
+app.use('/demo-site', express.static(path.join(__dirname, '../../demo-site')));
 app.use('/demo', express.static(path.join(__dirname, '../../demo-site')));
+app.use('/demo1', express.static(path.join(__dirname, '../../demo-site/demo1')));
+app.use('/demo2', express.static(path.join(__dirname, '../../demo-site/demo2/src')));
 
 
 // Socket.IO Setup
