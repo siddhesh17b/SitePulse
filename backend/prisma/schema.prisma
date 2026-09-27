@@ -1,0 +1,92 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Site {
+  id             String           @id @default(uuid())
+  name           String
+  domain         String
+  apiKey         String           @unique @default(uuid())
+  widgetSettings Json             @default("{\"primaryColor\":\"#2563eb\",\"title\":\"SitePulse Support\",\"subtitle\":\"Ask us anything or leave feedback\",\"greeting\":\"Hi there! How can we help you today?\",\"position\":\"right\",\"enableChat\":true,\"enableFeedback\":true,\"enableBugReport\":true,\"requireEmail\":false}")
+  createdAt      DateTime         @default(now())
+  conversations  Conversation[]
+  feedbacks      Feedback[]
+  bugReports     BugReport[]
+  analytics      AnalyticsEvent[]
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  siteId        String
+  site          Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitorId     String
+  visitorName   String?
+  visitorEmail  String?
+  status        String    @default("open")
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  messages      Message[]
+
+  @@index([siteId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType     String       // "visitor" or "agent"
+  senderName     String?
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String
+  userEmail String?
+  createdAt DateTime @default(now())
+
+  @@index([siteId, createdAt])
+}
+
+model BugReport {
+  id          String   @id @default(uuid())
+  siteId      String
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  userEmail   String?
+  url         String?
+  browser     String?
+  device      String?
+  status      String   @default("new")
+  createdAt   DateTime @default(now())
+
+  @@index([siteId, createdAt])
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(uuid())
+  siteId      String
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  sessionHash String
+  pathname    String
+  referrer    String?
+  browser     String?
+  os          String?
+  deviceType  String?
+  createdAt   DateTime @default(now())
+
+  @@index([siteId, createdAt])
+}

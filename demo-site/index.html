@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Demo Website - SitePulse Testbed</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    header {
+      background: #ffffff;
+      padding: 20px 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .logo {
+      font-weight: 700;
+      font-size: 20px;
+      color: #2563eb;
+    }
+    .hero {
+      max-width: 800px;
+      margin: 80px auto;
+      text-align: center;
+      padding: 0 24px;
+    }
+    .hero h1 {
+      font-size: 44px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: #64748b;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+    .btn-group {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid transparent;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-secondary {
+      background: #ffffff;
+      color: #334155;
+      border-color: #cbd5e1;
+    }
+    .btn-secondary:hover {
+      background: #f1f5f9;
+    }
+    .info-card {
+      max-width: 680px;
+      margin: 40px auto;
+      background: #ffffff;
+      padding: 28px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      text-align: left;
+    }
+    .info-card h3 {
+      margin-top: 0;
+      color: #1e293b;
+    }
+    .code-box {
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 14px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+  </style>
+
+  <!-- ========================================== -->
+  <!-- SITEPULSE EMBED INTEGRATION (One line)     -->
+  <!-- ========================================== -->
+  <script src="http://localhost:5000/sitepulse.js" data-site-key="sp_demo_12345" defer></script>
+</head>
+<body>
+
+  <header>
+    <div class="logo">Acme SaaS Store</div>
+    <nav>
+      <button class="btn btn-secondary" onclick="window.SitePulse.open()">Contact Support</button>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Experience the Next Generation of Cloud Collaboration</h1>
+    <p>This is a mock customer website to test the <strong>SitePulse</strong> embeddable widget. Look at the bottom-right corner to see the widget in action!</p>
+    
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="window.SitePulse.toggle()">Toggle Widget</button>
+      <button class="btn btn-secondary" onclick="window.SitePulse.open(); window.SitePulse.switchTab('feedback');">Give Feedback</button>
+      <button class="btn btn-secondary" onclick="window.SitePulse.open(); window.SitePulse.switchTab('bug');">Report a Bug</button>
+    </div>
+  </div>
+
+  <div class="info-card">
+    <h3>Embedded Script Details</h3>
+    <p>Notice how easy it was to install: just one script tag in the HTML head:</p>
+    <div class="code-box">&lt;script src="http://localhost:5000/sitepulse.js" data-site-key="sp_demo_12345" defer&gt;&lt;/script&gt;</div>
+    <p style="margin-top: 14px; font-size: 14px; color: #64748b;">
+      The widget loads via <strong>Shadow DOM</strong> so it never conflicts with the host page CSS styles.
+    </p>
+  </div>
+
+</body>
+</html>
