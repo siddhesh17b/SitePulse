@@ -7,8 +7,20 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("admin") // "admin" or "agent"
+  createdAt DateTime @default(now())
+  sites     Site[]
+}
+
 model Site {
   id             String           @id @default(uuid())
+  userId         String?
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   name           String
   domain         String
   apiKey         String           @unique @default(uuid())

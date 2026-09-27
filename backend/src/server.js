@@ -7,6 +7,8 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const prisma = require('./db');
+const { authMiddleware } = require('./middleware/auth');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,10 +28,12 @@ app.get('/sitepulse.js', (req, res) => {
   res.sendFile(path.join(__dirname, '../../widget/sitepulse.js'));
 });
 app.use('/demo-site', express.static(path.join(__dirname, '../../demo-site')));
-app.use('/demo', express.static(path.join(__dirname, '../../demo-site')));
+app.use('/demo', express.static(path.join(__dirname, '../../demo-site/demo1')));
 app.use('/demo1', express.static(path.join(__dirname, '../../demo-site/demo1')));
 app.use('/demo2', express.static(path.join(__dirname, '../../demo-site/demo2/src')));
 
+// Mount Authentication Routes
+app.use('/api/v1/auth', authRoutes);
 
 // Socket.IO Setup
 const io = new Server(server, {
@@ -41,13 +45,10 @@ const io = new Server(server, {
 
 // Real-time Chat Gateway
 io.on('connection', (socket) => {
-  console.log(`[Socket] New connection: ${socket.id}`);
-
   // Admin joins site-wide monitoring room
   socket.on('join_site_admin', ({ siteKey }) => {
     if (siteKey) {
       socket.join(`site_${siteKey}`);
-      console.log(`[Socket] Admin joined room: site_${siteKey}`);
     }
   });
 
@@ -55,7 +56,6 @@ io.on('connection', (socket) => {
   socket.on('join_conversation', ({ conversationId }) => {
     if (conversationId) {
       socket.join(`conv_${conversationId}`);
-      console.log(`[Socket] Socket ${socket.id} joined conversation: ${conversationId}`);
     }
   });
 
@@ -112,10 +112,6 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to send message' });
     }
   });
-
-  socket.on('disconnect', () => {
-    console.log(`[Socket] Disconnected: ${socket.id}`);
-  });
 });
 
 // -------------------------------------------------------------
@@ -127,10 +123,16 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-// 2. Sites Management
-app.get('/api/v1/sites', async (req, res) => {
+// 2. Sites Management (Protected for Logged-in Admins)
+app.get('/api/v1/sites', authMiddleware, async (req, res) => {
   try {
     const sites = await prisma.site.findMany({
+      where: {
+        OR: [
+          { userId: req.user.userId },
+          { userId: null } // allow accessing unassigned demo site
+        ]
+      },
       orderBy: { createdAt: 'desc' }
     });
     res.json(sites);
@@ -139,7 +141,7 @@ app.get('/api/v1/sites', async (req, res) => {
   }
 });
 
-app.post('/api/v1/sites', async (req, res) => {
+app.post('/api/v1/sites', authMiddleware, async (req, res) => {
   try {
     const { name, domain } = req.body;
     if (!name || !domain) {
@@ -161,6 +163,7 @@ app.post('/api/v1/sites', async (req, res) => {
       data: {
         name,
         domain,
+        userId: req.user.userId,
         widgetSettings: defaultSettings
       }
     });
@@ -171,7 +174,7 @@ app.post('/api/v1/sites', async (req, res) => {
 });
 
 // 3. Widget Customization / Configuration API
-// Fetched by the embed script to customize itself dynamically on client website
+// Public: Fetched by the embed script to customize itself dynamically on client website
 app.get('/api/v1/widget/config', async (req, res) => {
   try {
     const { key } = req.query;
@@ -204,8 +207,8 @@ app.get('/api/v1/widget/config', async (req, res) => {
   }
 });
 
-// Update Widget Customization Settings (called from Admin Dashboard)
-app.put('/api/v1/widget/config', async (req, res) => {
+// Protected: Update Widget Customization Settings (called from Admin Dashboard)
+app.put('/api/v1/widget/config', authMiddleware, async (req, res) => {
   try {
     const { siteKey, settings } = req.body;
     if (!siteKey || !settings) {
@@ -226,8 +229,8 @@ app.put('/api/v1/widget/config', async (req, res) => {
   }
 });
 
-// 4. Conversations API
-app.get('/api/v1/conversations', async (req, res) => {
+// 4. Conversations API (Protected for Admin Dashboard)
+app.get('/api/v1/conversations', authMiddleware, async (req, res) => {
   try {
     const { siteKey } = req.query;
     if (!siteKey) return res.status(400).json({ error: 'Missing siteKey' });
@@ -252,7 +255,7 @@ app.get('/api/v1/conversations', async (req, res) => {
   }
 });
 
-// Find or Create Conversation for a visitor
+// Public: Find or Create Conversation for a website visitor
 app.post('/api/v1/conversations/init', async (req, res) => {
   try {
     const { siteKey, visitorId, visitorName, visitorEmail } = req.body;
@@ -296,8 +299,8 @@ app.post('/api/v1/conversations/init', async (req, res) => {
   }
 });
 
-// Get Messages for a specific conversation
-app.get('/api/v1/conversations/:id/messages', async (req, res) => {
+// Protected: Get Messages for a specific conversation
+app.get('/api/v1/conversations/:id/messages', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const messages = await prisma.message.findMany({
@@ -311,6 +314,7 @@ app.get('/api/v1/conversations/:id/messages', async (req, res) => {
 });
 
 // 5. Feedback API
+// Public: Visitor submits feedback
 app.post('/api/v1/feedback', async (req, res) => {
   try {
     const { siteKey, rating, comment, userEmail } = req.body;
@@ -339,7 +343,8 @@ app.post('/api/v1/feedback', async (req, res) => {
   }
 });
 
-app.get('/api/v1/feedback', async (req, res) => {
+// Protected: Admin reads feedbacks
+app.get('/api/v1/feedback', authMiddleware, async (req, res) => {
   try {
     const { siteKey } = req.query;
     if (!siteKey) return res.status(400).json({ error: 'Missing siteKey' });
@@ -359,6 +364,7 @@ app.get('/api/v1/feedback', async (req, res) => {
 });
 
 // 6. Bug Reports API
+// Public: Visitor submits bug report
 app.post('/api/v1/bugs', async (req, res) => {
   try {
     const { siteKey, title, description, userEmail, url, browser, device } = req.body;
@@ -390,7 +396,8 @@ app.post('/api/v1/bugs', async (req, res) => {
   }
 });
 
-app.get('/api/v1/bugs', async (req, res) => {
+// Protected: Admin reads bug reports
+app.get('/api/v1/bugs', authMiddleware, async (req, res) => {
   try {
     const { siteKey } = req.query;
     if (!siteKey) return res.status(400).json({ error: 'Missing siteKey' });
@@ -409,7 +416,7 @@ app.get('/api/v1/bugs', async (req, res) => {
   }
 });
 
-// 7. Privacy-Preserving Analytics Ingestion API
+// 7. Privacy-Preserving Analytics Ingestion API (Public)
 app.post('/api/v1/events', async (req, res) => {
   try {
     const { siteKey, pathname, referrer, browser, os, deviceType } = req.body;
@@ -448,11 +455,61 @@ app.post('/api/v1/events', async (req, res) => {
   }
 });
 
+// Protected: Get Analytics Summary
+app.get('/api/v1/events/stats', authMiddleware, async (req, res) => {
+  try {
+    const { siteKey } = req.query;
+    if (!siteKey) return res.status(400).json({ error: 'Missing siteKey' });
+
+    const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
+    if (!site) return res.status(404).json({ error: 'Site not found' });
+
+    const totalPageviews = await prisma.analyticsEvent.count({ where: { siteId: site.id } });
+    const events = await prisma.analyticsEvent.findMany({
+      where: { siteId: site.id },
+      select: { sessionHash: true, pathname: true, referrer: true, browser: true, deviceType: true }
+    });
+
+    const uniqueSessions = new Set(events.map(e => e.sessionHash)).size;
+    const pageCounts = {};
+    events.forEach(e => {
+      pageCounts[e.pathname] = (pageCounts[e.pathname] || 0) + 1;
+    });
+
+    const topPages = Object.entries(pageCounts)
+      .map(([path, count]) => ({ path, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    res.json({
+      totalPageviews,
+      uniqueVisitors: uniqueSessions,
+      topPages
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// UNIFIED PRODUCTION DASHBOARD SERVING (Single-Port Setup)
+// -------------------------------------------------------------
+const dashboardDist = path.join(__dirname, '../../dashboard/dist');
+app.use(express.static(dashboardDist));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/widget') || req.path.startsWith('/demo') || req.path === '/sitepulse.js') {
+    return next();
+  }
+  res.sendFile(path.join(dashboardDist, 'index.html'));
+});
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`===============================================`);
-  console.log(`🚀 SitePulse Backend Server running on port ${PORT}`);
-  console.log(`📡 Socket.IO gateway ready`);
+  console.log(`🚀 SitePulse Production Server running on port ${PORT}`);
+  console.log(`📊 Unified Dashboard at: http://localhost:${PORT}/`);
+  console.log(`📡 Socket.IO gateway ready on port ${PORT}`);
   console.log(`📦 Widget served at: http://localhost:${PORT}/sitepulse.js`);
   console.log(`===============================================`);
 });
