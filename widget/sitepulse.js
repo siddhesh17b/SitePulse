@@ -81,7 +81,7 @@
 
   // 4. Fetch Widget Settings & Render
   let widgetSettings = {
-    primaryColor: '#2563eb',
+    primaryColor: '#19aea4',
     title: 'SitePulse Support',
     subtitle: 'Ask us anything or leave feedback',
     greeting: 'Hi there! How can we help you today?',
@@ -134,7 +134,7 @@
   }
 
   function getContrastColors(hexColor) {
-    let hex = (hexColor || '#2563eb').replace('#', '').trim();
+    let hex = (hexColor || '#19aea4').replace('#', '').trim();
     if (hex.length === 3) {
       hex = hex.split('').map((c) => c + c).join('');
     }
@@ -150,7 +150,7 @@
       textMuted: isLight ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.88)',
       launcherBorder: isLight ? '1px solid #cbd5e1' : 'none',
       headerBorder: isLight ? '1px solid #e2e8f0' : 'none',
-      activeTab: isLight ? '#0f172a' : (hexColor || '#2563eb'),
+      activeTab: isLight ? '#0f172a' : (hexColor || '#19aea4'),
       closeBtnBg: isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.14)',
       closeBtnHover: isLight ? 'rgba(0, 0, 0, 0.14)' : 'rgba(255, 255, 255, 0.28)',
       bubbleBorder: isLight ? '1px solid #cbd5e1' : 'none',
@@ -162,7 +162,7 @@
 
   function injectStyles() {
     const isLeft = widgetSettings.position === 'left';
-    const primary = widgetSettings.primaryColor || '#2563eb';
+    const primary = widgetSettings.primaryColor || '#19aea4';
     const contrast = getContrastColors(primary);
 
     const style = document.createElement('style');
@@ -276,15 +276,16 @@
       }
 
       .sp-header-info h3 {
-        font-size: 16px;
-        font-weight: 600;
+        font-size: 18px;
+        font-weight: 700;
         color: ${contrast.text};
       }
 
       .sp-header-info p {
-        font-size: 12px;
+        font-size: 14px;
         color: ${contrast.textMuted};
         margin-top: 3px;
+        font-weight: 500;
       }
 
       .sp-close-btn {
@@ -325,12 +326,12 @@
 
       .sp-tab-btn {
         flex: 1;
-        padding: 10px 8px;
+        padding: 12px 10px;
         background: none;
         border: none;
         border-bottom: 2px solid transparent;
-        font-size: 13px;
-        font-weight: 500;
+        font-size: 14.5px;
+        font-weight: 600;
         color: #64748b;
         cursor: pointer;
         display: flex;
@@ -344,7 +345,7 @@
         color: ${contrast.activeTab};
         border-bottom-color: ${contrast.activeTab};
         background: #ffffff;
-        font-weight: 600;
+        font-weight: 700;
       }
 
       /* Content Area */
@@ -651,7 +652,7 @@
       <div class="sp-nav">
         ${widgetSettings.enableChat ? '<button class="sp-tab-btn active" data-tab="chat">💬 Chat</button>' : ''}
         ${widgetSettings.enableFeedback ? '<button class="sp-tab-btn" data-tab="feedback">⭐ Feedback</button>' : ''}
-        ${widgetSettings.enableBugReport ? '<button class="sp-tab-btn" data-tab="bug">🐞 Report Bug</button>' : ''}
+        ${widgetSettings.enableBugReport ? '<button class="sp-tab-btn" data-tab="bug">🐞 Bug Report</button>' : ''}
       </div>
 
       <div class="sp-content">

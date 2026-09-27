@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const prisma = require('./db');
+const bcrypt = require('bcryptjs');
 const { authMiddleware } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 
@@ -160,7 +161,7 @@ app.post('/api/v1/sites', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Name and domain are required' });
     }
     const defaultSettings = {
-      primaryColor: '#2563eb',
+      primaryColor: '#19aea4',
       title: 'SitePulse Support',
       subtitle: 'Ask us anything or leave feedback',
       greeting: 'Hi there! How can we help you today?',
@@ -185,21 +186,41 @@ app.post('/api/v1/sites', authMiddleware, async (req, res) => {
   }
 });
 
-// Protected: Delete a Site and all its associated data
+// Protected: Delete a Site and all its associated data (Requires Admin Password)
 app.delete('/api/v1/sites/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Your admin account password is required to delete this website property.' });
+    }
+
+    // Verify user password
+    const adminUser = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+
+    if (!adminUser) {
+      return res.status(404).json({ error: 'Admin account not found.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, adminUser.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Incorrect password. Website deletion cancelled.' });
+    }
+
     const site = await prisma.site.findUnique({ where: { id } });
     if (!site) {
-      return res.status(404).json({ error: 'Site not found' });
+      return res.status(404).json({ error: 'Site not found.' });
     }
     // Allow deleting if user owns it or if it is demo site
     if (site.userId && site.userId !== req.user.userId) {
-      return res.status(403).json({ error: 'Unauthorized to delete this site' });
+      return res.status(403).json({ error: 'Unauthorized to delete this site.' });
     }
 
     await prisma.site.delete({ where: { id } });
-    res.json({ success: true, message: 'Site deleted successfully' });
+    res.json({ success: true, message: 'Website property deleted successfully.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
