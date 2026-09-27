@@ -31,6 +31,29 @@ const BACKEND_URL = (window.location.origin.includes(':3000') || window.location
   ? 'http://localhost:5000' 
   : window.location.origin;
 
+function getContrastColors(hexColor) {
+  let hex = (hexColor || '#2563eb').replace('#', '').trim();
+  if (hex.length === 3) {
+    hex = hex.split('').map((c) => c + c).join('');
+  }
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  const isLight = yiq >= 170;
+
+  return {
+    isLight,
+    text: isLight ? '#0f172a' : '#ffffff',
+    textMuted: isLight ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.88)',
+    headerBorder: isLight ? '1px solid #e2e8f0' : 'none',
+    activeTab: isLight ? '#0f172a' : (hexColor || '#2563eb'),
+    closeBtnBg: isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.14)',
+    bubbleBorder: isLight ? '1px solid #cbd5e1' : 'none',
+    launcherBorder: isLight ? '1px solid #cbd5e1' : 'none'
+  };
+}
+
 export default function App() {
   // Auth state
   const [token, setToken] = useState(localStorage.getItem('sitepulse_admin_token'));
@@ -1116,24 +1139,97 @@ export default function App() {
               </div>
 
               {/* Live Preview */}
-              <div className="flex-1 bg-slate-100 flex flex-col items-center justify-center p-6 sm:p-8 relative min-h-[580px] lg:min-h-0">
-                <div className="w-[360px] h-[500px] bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden">
-                  <div style={{ backgroundColor: settings.primaryColor }} className="text-white p-4">
-                    <h4 className="font-semibold text-sm">{settings.title}</h4>
-                    <p className="text-xs opacity-90 mt-0.5">{settings.subtitle}</p>
-                  </div>
-                  <div className="flex border-b border-slate-100 bg-slate-50 text-xs font-medium">
-                    {settings.enableChat && <div className="flex-1 py-2 text-center border-b-2 font-semibold bg-white" style={{ color: settings.primaryColor, borderBottomColor: settings.primaryColor }}>💬 Chat</div>}
-                    {settings.enableFeedback && <div className="flex-1 py-2 text-center text-slate-500">⭐ Feedback</div>}
-                    {settings.enableBugReport && <div className="flex-1 py-2 text-center text-slate-500">🐞 Bug Report</div>}
-                  </div>
-                  <div className="flex-1 bg-slate-50 p-4 space-y-3">
-                    <div className="bg-white border border-slate-200 p-3 rounded-2xl text-xs text-slate-800 shadow-sm max-w-[85%]">
-                      {settings.greeting}
+              {(() => {
+                const previewContrast = getContrastColors(settings.primaryColor);
+                return (
+                  <div className="flex-1 bg-slate-100 flex flex-col items-center justify-center p-6 sm:p-8 relative min-h-[580px] lg:min-h-0 space-y-4">
+                    <div className="w-[360px] h-[520px] bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden">
+                      <div
+                        style={{
+                          backgroundColor: settings.primaryColor,
+                          borderBottom: previewContrast.headerBorder
+                        }}
+                        className="p-4 flex items-center justify-between"
+                      >
+                        <div>
+                          <h4 className="font-semibold text-sm" style={{ color: previewContrast.text }}>
+                            {settings.title}
+                          </h4>
+                          <p className="text-xs mt-0.5" style={{ color: previewContrast.textMuted }}>
+                            {settings.subtitle}
+                          </p>
+                        </div>
+                        <div
+                          style={{ background: previewContrast.closeBtnBg, color: previewContrast.text }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
+                        >
+                          ✕
+                        </div>
+                      </div>
+                      <div className="flex border-b border-slate-100 bg-slate-50 text-xs font-medium">
+                        {settings.enableChat && (
+                          <div
+                            className="flex-1 py-2 text-center border-b-2 font-semibold bg-white"
+                            style={{ color: previewContrast.activeTab, borderBottomColor: previewContrast.activeTab }}
+                          >
+                            💬 Chat
+                          </div>
+                        )}
+                        {settings.enableFeedback && <div className="flex-1 py-2 text-center text-slate-500">⭐ Feedback</div>}
+                        {settings.enableBugReport && <div className="flex-1 py-2 text-center text-slate-500">🐞 Bug Report</div>}
+                      </div>
+                      <div className="flex-1 bg-slate-50 p-4 space-y-3 flex flex-col justify-between">
+                        <div className="space-y-3">
+                          <div className="bg-white border border-slate-200 p-3 rounded-2xl text-xs text-slate-800 shadow-sm max-w-[85%] rounded-bl-sm">
+                            {settings.greeting}
+                          </div>
+                          <div
+                            style={{
+                              backgroundColor: settings.primaryColor,
+                              color: previewContrast.text,
+                              border: previewContrast.bubbleBorder
+                            }}
+                            className="p-3 rounded-2xl text-xs shadow-sm max-w-[85%] ml-auto rounded-br-sm font-medium"
+                          >
+                            Visitor message sample
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-200/70">
+                          <div className="flex-1 bg-white border border-slate-200 rounded-full px-3 py-1.5 text-xs text-slate-400">
+                            Type a message...
+                          </div>
+                          <div
+                            style={{
+                              backgroundColor: settings.primaryColor,
+                              color: previewContrast.text,
+                              border: previewContrast.launcherBorder
+                            }}
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-sm"
+                          >
+                            ➤
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Floating Launcher Preview */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Floating Launcher:</span>
+                      <div
+                        style={{
+                          backgroundColor: settings.primaryColor,
+                          color: previewContrast.text,
+                          border: previewContrast.launcherBorder
+                        }}
+                        className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-transform hover:scale-105"
+                      >
+                        <MessageSquare className="w-5 h-5" style={{ color: previewContrast.text }} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
             </div>
           )}
 

@@ -133,9 +133,37 @@
     }
   }
 
+  function getContrastColors(hexColor) {
+    let hex = (hexColor || '#2563eb').replace('#', '').trim();
+    if (hex.length === 3) {
+      hex = hex.split('').map((c) => c + c).join('');
+    }
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    const isLight = yiq >= 170;
+
+    return {
+      isLight,
+      text: isLight ? '#0f172a' : '#ffffff',
+      textMuted: isLight ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.88)',
+      launcherBorder: isLight ? '1px solid #cbd5e1' : 'none',
+      headerBorder: isLight ? '1px solid #e2e8f0' : 'none',
+      activeTab: isLight ? '#0f172a' : (hexColor || '#2563eb'),
+      closeBtnBg: isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.14)',
+      closeBtnHover: isLight ? 'rgba(0, 0, 0, 0.14)' : 'rgba(255, 255, 255, 0.28)',
+      bubbleBorder: isLight ? '1px solid #cbd5e1' : 'none',
+      submitBorder: isLight ? '1px solid #cbd5e1' : 'none',
+      sendBtnBorder: isLight ? '1px solid #cbd5e1' : 'none',
+      metaColor: isLight ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.75)'
+    };
+  }
+
   function injectStyles() {
     const isLeft = widgetSettings.position === 'left';
     const primary = widgetSettings.primaryColor || '#2563eb';
+    const contrast = getContrastColors(primary);
 
     const style = document.createElement('style');
     style.textContent = `
@@ -154,8 +182,9 @@
         height: 60px;
         border-radius: 50%;
         background-color: ${primary};
-        color: #ffffff;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12);
+        color: ${contrast.text};
+        border: ${contrast.launcherBorder};
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -175,10 +204,10 @@
         transition: transform 0.2s ease, opacity 0.2s ease;
       }
       .sp-launcher .sp-launcher-chat {
-        fill: #ffffff;
+        fill: ${contrast.text};
       }
       .sp-launcher .sp-launcher-close {
-        stroke: #ffffff;
+        stroke: ${contrast.text};
         stroke-width: 2.5;
         stroke-linecap: round;
         stroke-linejoin: round;
@@ -238,7 +267,8 @@
       /* Header */
       .sp-header {
         background-color: ${primary};
-        color: #ffffff;
+        color: ${contrast.text};
+        border-bottom: ${contrast.headerBorder};
         padding: 18px 20px;
         display: flex;
         justify-content: space-between;
@@ -248,11 +278,12 @@
       .sp-header-info h3 {
         font-size: 16px;
         font-weight: 600;
+        color: ${contrast.text};
       }
 
       .sp-header-info p {
         font-size: 12px;
-        opacity: 0.88;
+        color: ${contrast.textMuted};
         margin-top: 3px;
       }
 
@@ -263,22 +294,22 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.14);
+        background: ${contrast.closeBtnBg};
         border: none;
-        color: #ffffff;
+        color: ${contrast.text};
         cursor: pointer;
         transition: background 0.15s ease, transform 0.1s ease;
         padding: 0;
       }
       .sp-close-btn:hover {
         opacity: 1;
-        background: rgba(255, 255, 255, 0.28);
+        background: ${contrast.closeBtnHover};
         transform: scale(1.05);
       }
       .sp-close-btn svg {
         width: 18px;
         height: 18px;
-        stroke: #ffffff;
+        stroke: ${contrast.text};
         stroke-width: 2.5;
         stroke-linecap: round;
         stroke-linejoin: round;
@@ -310,8 +341,8 @@
       }
 
       .sp-tab-btn.active {
-        color: ${primary};
-        border-bottom-color: ${primary};
+        color: ${contrast.activeTab};
+        border-bottom-color: ${contrast.activeTab};
         background: #ffffff;
         font-weight: 600;
       }
@@ -431,7 +462,8 @@
       .sp-msg.visitor {
         align-self: flex-end;
         background-color: ${primary};
-        color: #ffffff;
+        color: ${contrast.text};
+        border: ${contrast.bubbleBorder};
         border-bottom-right-radius: 4px;
       }
 
@@ -445,9 +477,12 @@
 
       .sp-msg-meta {
         font-size: 10px;
-        opacity: 0.7;
+        opacity: 0.75;
         margin-top: 4px;
         text-align: right;
+      }
+      .sp-msg.visitor .sp-msg-meta {
+        color: ${contrast.metaColor};
       }
 
       .sp-typing {
@@ -475,7 +510,7 @@
         outline: none;
       }
       .sp-chat-input:focus {
-        border-color: ${primary};
+        border-color: ${contrast.activeTab};
       }
 
       .sp-send-btn {
@@ -483,12 +518,19 @@
         height: 38px;
         border-radius: 50%;
         background-color: ${primary};
-        color: #ffffff;
-        border: none;
+        color: ${contrast.text};
+        border: ${contrast.sendBtnBorder};
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
+        transition: transform 0.15s ease;
+      }
+      .sp-send-btn:hover {
+        transform: scale(1.05);
+      }
+      .sp-send-btn svg {
+        fill: ${contrast.text};
       }
 
       /* Feedback & Bug Panels */
@@ -528,7 +570,7 @@
         outline: none;
       }
       .sp-input:focus, .sp-textarea:focus {
-        border-color: ${primary};
+        border-color: ${contrast.activeTab};
       }
 
       .sp-textarea {
@@ -538,8 +580,8 @@
 
       .sp-submit-btn {
         background-color: ${primary};
-        color: #ffffff;
-        border: none;
+        color: ${contrast.text};
+        border: ${contrast.submitBorder};
         border-radius: 8px;
         padding: 11px;
         font-size: 13.5px;
@@ -566,7 +608,7 @@
         color: #64748b;
         padding: 8px 10px;
         border-radius: 6px;
-        border-left: 3px solid ${primary};
+        border-left: 3px solid ${contrast.activeTab};
         line-height: 1.4;
       }
     `;
