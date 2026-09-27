@@ -38,7 +38,19 @@
     }
     return vid;
   }
-  const visitorId = getVisitorId();
+  let visitorId = getVisitorId();
+  let visitorEmail = localStorage.getItem('sitepulse_visitor_email') || '';
+  let visitorName = localStorage.getItem('sitepulse_visitor_name') || '';
+  let externalId = localStorage.getItem('sitepulse_external_id') || '';
+
+  // Capture early queue if SitePulse was called before script loaded
+  const preQueue = (window.SitePulse && window.SitePulse._q) || (Array.isArray(window.SitePulse) ? window.SitePulse : []);
+  if (window.SitePulse && typeof window.SitePulse === 'object' && window.SitePulse._pendingUser) {
+    const pu = window.SitePulse._pendingUser;
+    if (pu.email) visitorEmail = pu.email;
+    if (pu.name) visitorName = pu.name;
+    if (pu.userId) externalId = String(pu.userId);
+  }
 
   // 3. Passive Privacy-Preserving Analytics Tracking
   function trackPageView() {
@@ -62,14 +74,9 @@
           keepalive: true
         }).catch(() => {});
       }
-    } catch (e) {
-      // Analytics failure shouldn't affect user experience
-    }
+    } catch (e) {}
   }
-  // Track initial pageview
   trackPageView();
-
-  // Track SPA route changes
   window.addEventListener('popstate', trackPageView);
 
   // 4. Fetch Widget Settings & Render
@@ -82,7 +89,7 @@
     enableChat: true,
     enableFeedback: true,
     enableBugReport: true,
-    requireEmail: false
+    requireEmail: true
   };
 
   fetch(`${backendUrl}/api/v1/widget/config?key=${siteKey}`)
@@ -107,12 +114,10 @@
   let shadowRoot = null;
 
   function initWidget() {
-    // Determine active tab based on enabled settings
     if (widgetSettings.enableChat) activeTab = 'chat';
     else if (widgetSettings.enableFeedback) activeTab = 'feedback';
     else if (widgetSettings.enableBugReport) activeTab = 'bug';
 
-    // Create container element with Shadow DOM
     const container = document.createElement('div');
     container.id = 'sitepulse-widget-root';
     document.body.appendChild(container);
@@ -121,7 +126,6 @@
     renderWidgetDOM();
     injectStyles();
 
-    // Dynamically load Socket.IO client script if chat is enabled
     if (widgetSettings.enableChat) {
       loadSocketIO(() => {
         setupRealtimeChat();
@@ -294,19 +298,93 @@
         overflow-y: auto;
         display: flex;
         flex-direction: column;
+        position: relative;
       }
 
       .sp-tab-panel {
         display: none;
         flex: 1;
         flex-direction: column;
+        position: relative;
       }
 
       .sp-tab-panel.active {
         display: flex;
       }
 
-      /* Chat Panel */
+      /* Chat Top Banner & Reset Button */
+      .sp-chat-top-banner {
+        background: #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 7px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+
+      .sp-visitor-tag {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 190px;
+      }
+
+      .sp-end-chat-link {
+        background: none;
+        border: none;
+        color: #ef4444;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: all 0.15s ease;
+      }
+      .sp-end-chat-link:hover {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      /* Chat Panel & Email Gate */
+      .sp-email-gate {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #ffffff;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 28px 24px;
+        text-align: center;
+      }
+
+      .sp-gate-card h4 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 6px;
+      }
+
+      .sp-gate-card p {
+        font-size: 12.5px;
+        color: #64748b;
+        margin-bottom: 18px;
+        line-height: 1.45;
+      }
+
+      .sp-gate-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        text-align: left;
+      }
+
       .sp-chat-messages {
         flex: 1;
         padding: 16px;
@@ -458,7 +536,6 @@
         font-size: 14px;
       }
 
-      /* Auto-attached diagnostic banner */
       .sp-diagnostic-tag {
         font-size: 11px;
         background: #f1f5f9;
@@ -510,6 +587,32 @@
       <div class="sp-content">
         <!-- 1. Chat Tab Panel -->
         <div class="sp-tab-panel active" id="sp-panel-chat">
+          <!-- Active Session Banner & Reset Option -->
+          <div class="sp-chat-top-banner" id="sp-chat-banner" style="display: ${(visitorEmail || externalId) ? 'flex' : 'none'};">
+            <span class="sp-visitor-tag" id="sp-visitor-tag">Chatting as: <strong>${escapeHTML(visitorName ? `${visitorName} (${visitorEmail || externalId})` : (visitorEmail || externalId))}</strong></span>
+            <button type="button" class="sp-end-chat-link" id="sp-end-chat-btn">End Conversation / Not you?</button>
+          </div>
+
+          <!-- Required Email Gate (bypassed if identified or email provided) -->
+          <div class="sp-email-gate" id="sp-email-gate" style="display: ${(visitorEmail || externalId) ? 'none' : 'flex'};">
+            <div class="sp-gate-card">
+              <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
+              <h4>Start a Conversation</h4>
+              <p>Please enter your email so our support team can assist you.</p>
+              <form class="sp-gate-form" id="sp-gate-form">
+                <div>
+                  <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Your Name (optional):</label>
+                  <input type="text" class="sp-input" id="sp-gate-name" placeholder="e.g. Alex Smith" />
+                </div>
+                <div>
+                  <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Email Address *:</label>
+                  <input type="email" class="sp-input" id="sp-gate-email" placeholder="name@example.com" required />
+                </div>
+                <button type="submit" class="sp-submit-btn" style="margin-top: 6px;">Continue to Chat</button>
+              </form>
+            </div>
+          </div>
+
           <div class="sp-chat-messages" id="sp-chat-messages">
             <div class="sp-msg agent">
               ${escapeHTML(widgetSettings.greeting)}
@@ -541,7 +644,7 @@
             <label>Tell us what you think:</label>
             <textarea class="sp-textarea" id="sp-feedback-text" placeholder="What did you like or what can we improve?" required></textarea>
             <label>Your Email (optional):</label>
-            <input type="email" class="sp-input" id="sp-feedback-email" placeholder="name@example.com" />
+            <input type="email" class="sp-input" id="sp-feedback-email" placeholder="name@example.com" value="${visitorEmail}" />
             <button type="submit" class="sp-submit-btn">Send Feedback</button>
           </form>
           <div class="sp-success-msg" id="sp-feedback-success">
@@ -557,7 +660,7 @@
             <label>Description & Steps to reproduce:</label>
             <textarea class="sp-textarea" id="sp-bug-desc" placeholder="What happened? What did you expect to happen?" required></textarea>
             <label>Your Email (optional):</label>
-            <input type="email" class="sp-input" id="sp-bug-email" placeholder="name@example.com" />
+            <input type="email" class="sp-input" id="sp-bug-email" placeholder="name@example.com" value="${visitorEmail}" />
             
             <div class="sp-diagnostic-tag">
               ℹ️ Current URL & device diagnostic info will be automatically attached to help resolve this faster.
@@ -595,6 +698,60 @@
       if (e.key === 'Enter') handleSendMessage();
     });
 
+    // Email Gate submission
+    const gateForm = shadowRoot.getElementById('sp-gate-form');
+    if (gateForm) {
+      gateForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const emailInput = shadowRoot.getElementById('sp-gate-email');
+        const nameInput = shadowRoot.getElementById('sp-gate-name');
+        const emailVal = emailInput.value.trim();
+        const nameVal = nameInput.value.trim();
+        if (!emailVal) return;
+
+        visitorEmail = emailVal;
+        visitorName = nameVal;
+        localStorage.setItem('sitepulse_visitor_email', visitorEmail);
+        if (visitorName) localStorage.setItem('sitepulse_visitor_name', visitorName);
+
+        // Hide gate and show banner
+        shadowRoot.getElementById('sp-email-gate').style.display = 'none';
+        const banner = shadowRoot.getElementById('sp-chat-banner');
+        const visitorTag = shadowRoot.getElementById('sp-visitor-tag');
+        if (banner && visitorTag) {
+          const label = visitorName ? `${visitorName} (${visitorEmail})` : visitorEmail;
+          visitorTag.innerHTML = `Chatting as: <strong>${escapeHTML(label)}</strong>`;
+          banner.style.display = 'flex';
+        }
+
+        // Connect conversation with email
+        fetch(`${backendUrl}/api/v1/conversations/init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            siteKey,
+            visitorId,
+            visitorEmail,
+            visitorName,
+            externalId: externalId || null
+          })
+        })
+          .then((res) => res.json())
+          .then((conv) => {
+            applyConversation(conv);
+            if (socket) {
+              socket.emit('join_conversation', { conversationId: conv.id });
+            }
+          });
+      });
+    }
+
+    // End Chat / Not You button listener
+    const endChatBtn = shadowRoot.getElementById('sp-end-chat-btn');
+    if (endChatBtn) {
+      endChatBtn.addEventListener('click', () => handleResetSession(true));
+    }
+
     // Star rating interactions
     setupRatingStars();
 
@@ -604,6 +761,62 @@
     // Bug Report Form Submission
     shadowRoot.getElementById('sp-bug-form').addEventListener('submit', handleBugSubmit);
   }
+
+  function handleResetSession(confirmPrompt = true) {
+    if (confirmPrompt && !confirm('Are you sure you want to end this conversation and clear your session?')) {
+      return;
+    }
+
+    // 1. Clear LocalStorage
+    localStorage.removeItem('sitepulse_visitor_id');
+    localStorage.removeItem('sitepulse_visitor_email');
+    localStorage.removeItem('sitepulse_visitor_name');
+    localStorage.removeItem('sitepulse_external_id');
+
+    // 2. Reset in-memory state
+    visitorEmail = '';
+    visitorName = '';
+    externalId = '';
+    conversation = null;
+    unreadCount = 0;
+    if (shadowRoot) updateBadge();
+
+    // 3. Generate a fresh visitor ID
+    visitorId = getVisitorId();
+
+    // 4. Reset Chat DOM
+    if (shadowRoot) {
+      const chatArea = shadowRoot.getElementById('sp-chat-messages');
+      if (chatArea) {
+        chatArea.innerHTML = `
+          <div class="sp-msg agent">
+            ${escapeHTML(widgetSettings.greeting)}
+            <div class="sp-msg-meta">Support Team</div>
+          </div>
+        `;
+      }
+
+      // 5. Hide banner and display Email Gate
+      const banner = shadowRoot.getElementById('sp-chat-banner');
+      if (banner) banner.style.display = 'none';
+
+      const gate = shadowRoot.getElementById('sp-email-gate');
+      if (gate) {
+        gate.style.display = 'flex';
+        const emailInput = shadowRoot.getElementById('sp-gate-email');
+        const nameInput = shadowRoot.getElementById('sp-gate-name');
+        if (emailInput) emailInput.value = '';
+        if (nameInput) nameInput.value = '';
+      }
+
+      // 6. Reset email inputs in other tabs
+      const fbEmail = shadowRoot.getElementById('sp-feedback-email');
+      if (fbEmail) fbEmail.value = '';
+      const bugEmail = shadowRoot.getElementById('sp-bug-email');
+      if (bugEmail) bugEmail.value = '';
+    }
+  }
+
 
   function toggleWidget() {
     isOpen = !isOpen;
@@ -631,9 +844,7 @@
   function setupRatingStars() {
     const stars = shadowRoot.querySelectorAll('.sp-star');
     stars.forEach((star, index) => {
-      // Default to 5 selected
       star.classList.add('selected');
-
       star.addEventListener('click', () => {
         selectedRating = index + 1;
         stars.forEach((s, i) => {
@@ -651,7 +862,6 @@
     });
   }
 
-  // Socket.IO Chat Client Setup
   function loadSocketIO(callback) {
     if (window.io) {
       callback();
@@ -663,39 +873,113 @@
     document.head.appendChild(script);
   }
 
-  function setupRealtimeChat() {
-    // 1. Initialize conversation on backend
+  function applyConversation(conv) {
+    conversation = conv;
+    if (!shadowRoot) return;
+    const chatArea = shadowRoot.getElementById('sp-chat-messages');
+    if (!chatArea) return;
+
+    chatArea.innerHTML = '';
+    if (conv.messages && conv.messages.length > 0) {
+      conv.messages.forEach((msg) => {
+        appendMessage(msg.content, msg.senderType, msg.senderName, false);
+      });
+    } else {
+      chatArea.innerHTML = `
+        <div class="sp-msg agent">
+          ${escapeHTML(widgetSettings.greeting)}
+          <div class="sp-msg-meta">Support Team</div>
+        </div>
+      `;
+    }
+  }
+
+  function handleIdentify(userData) {
+    if (!userData || typeof userData !== 'object') return;
+    const { email, name, userId } = userData;
+
+    if (email) {
+      visitorEmail = email.trim();
+      localStorage.setItem('sitepulse_visitor_email', visitorEmail);
+    }
+    if (name) {
+      visitorName = name.trim();
+      localStorage.setItem('sitepulse_visitor_name', visitorName);
+    }
+    if (userId !== undefined && userId !== null) {
+      externalId = String(userId).trim();
+      localStorage.setItem('sitepulse_external_id', externalId);
+    }
+
+    // Immediately update UI if widget DOM is mounted
+    if (shadowRoot) {
+      const gate = shadowRoot.getElementById('sp-email-gate');
+      if (gate) gate.style.display = 'none';
+
+      const banner = shadowRoot.getElementById('sp-chat-banner');
+      const visitorTag = shadowRoot.getElementById('sp-visitor-tag');
+      if (banner && visitorTag) {
+        const label = visitorName ? `${visitorName} (${visitorEmail || externalId})` : (visitorEmail || externalId);
+        visitorTag.innerHTML = `Chatting as: <strong>${escapeHTML(label)}</strong>`;
+        banner.style.display = 'flex';
+      }
+
+      const fbEmail = shadowRoot.getElementById('sp-feedback-email');
+      if (fbEmail && visitorEmail) fbEmail.value = visitorEmail;
+      const bugEmail = shadowRoot.getElementById('sp-bug-email');
+      if (bugEmail && visitorEmail) bugEmail.value = visitorEmail;
+    }
+
+    // Connect or switch conversation with backend
     fetch(`${backendUrl}/api/v1/conversations/init`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         siteKey,
-        visitorId
+        visitorId,
+        visitorEmail: visitorEmail || null,
+        visitorName: visitorName || null,
+        externalId: externalId || null
       })
     })
       .then((res) => res.json())
       .then((conv) => {
-        conversation = conv;
-
-        // Render any previous messages
-        if (conv.messages && conv.messages.length > 0) {
-          const chatArea = shadowRoot.getElementById('sp-chat-messages');
-          chatArea.innerHTML = ''; // Clear default greeting if history exists
-          conv.messages.forEach((msg) => {
-            appendMessage(msg.content, msg.senderType, msg.senderName, false);
-          });
+        applyConversation(conv);
+        if (socket && socket.connected && conv.id) {
+          socket.emit('join_conversation', { conversationId: conv.id });
         }
+      })
+      .catch((err) => console.warn('[SitePulse] Identify conversation sync error:', err));
+  }
+
+  function setupRealtimeChat() {
+    fetch(`${backendUrl}/api/v1/conversations/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        siteKey,
+        visitorId,
+        visitorEmail: visitorEmail || null,
+        visitorName: visitorName || null,
+        externalId: externalId || null
+      })
+    })
+      .then((res) => res.json())
+      .then((conv) => {
+        applyConversation(conv);
 
         // Connect Socket.IO
         socket = window.io(backendUrl);
 
         socket.on('connect', () => {
-          socket.emit('join_conversation', { conversationId: conversation.id });
+          if (conversation && conversation.id) {
+            socket.emit('join_conversation', { conversationId: conversation.id });
+          }
         });
 
         // Listen for new messages
         socket.on('message_received', (msg) => {
-          if (msg.conversationId === conversation.id) {
+          if (conversation && msg.conversationId === conversation.id) {
             appendMessage(msg.content, msg.senderType, msg.senderName, true);
             if (!isOpen && msg.senderType === 'agent') {
               unreadCount++;
@@ -708,14 +992,13 @@
         socket.on('typing', ({ senderType, isTyping }) => {
           if (senderType === 'agent') {
             const typingEl = shadowRoot.getElementById('sp-typing');
-            typingEl.style.display = isTyping ? 'block' : 'none';
+            if (typingEl) typingEl.style.display = isTyping ? 'block' : 'none';
           }
         });
 
-        // Listen for live widget settings update from admin dashboard!
+        // Listen for live widget settings update
         socket.on('widget_settings_updated', (newSettings) => {
           widgetSettings = { ...widgetSettings, ...newSettings };
-          // Dynamically update UI
           const titleEl = shadowRoot.getElementById('sp-title');
           const subtitleEl = shadowRoot.getElementById('sp-subtitle');
           if (titleEl) titleEl.textContent = widgetSettings.title;
@@ -734,6 +1017,7 @@
       conversationId: conversation.id,
       siteKey: siteKey,
       senderType: 'visitor',
+      senderName: visitorName || visitorEmail || 'Visitor',
       content: content
     });
 
@@ -764,11 +1048,10 @@
     }
   }
 
-  // Handle Feedback Submission
   function handleFeedbackSubmit(e) {
     e.preventDefault();
     const comment = shadowRoot.getElementById('sp-feedback-text').value.trim();
-    const userEmail = shadowRoot.getElementById('sp-feedback-email').value.trim();
+    const emailVal = shadowRoot.getElementById('sp-feedback-email').value.trim() || visitorEmail;
 
     fetch(`${backendUrl}/api/v1/feedback`, {
       method: 'POST',
@@ -777,7 +1060,7 @@
         siteKey,
         rating: selectedRating,
         comment,
-        userEmail
+        userEmail: emailVal
       })
     })
       .then((res) => res.json())
@@ -788,12 +1071,11 @@
       .catch((err) => alert('Failed to submit feedback: ' + err.message));
   }
 
-  // Handle Bug Report Submission
   function handleBugSubmit(e) {
     e.preventDefault();
     const title = shadowRoot.getElementById('sp-bug-title').value.trim();
     const description = shadowRoot.getElementById('sp-bug-desc').value.trim();
-    const userEmail = shadowRoot.getElementById('sp-bug-email').value.trim();
+    const emailVal = shadowRoot.getElementById('sp-bug-email').value.trim() || visitorEmail;
 
     fetch(`${backendUrl}/api/v1/bugs`, {
       method: 'POST',
@@ -802,7 +1084,7 @@
         siteKey,
         title,
         description,
-        userEmail,
+        userEmail: emailVal,
         url: window.location.href,
         browser: navigator.userAgent,
         device: `${window.innerWidth}x${window.innerHeight}`
@@ -823,11 +1105,23 @@
     );
   }
 
-  // Public JavaScript API (Matches Papercups standard)
   window.SitePulse = {
     open: () => { if (!isOpen) toggleWidget(); },
     close: () => { if (isOpen) toggleWidget(); },
     toggle: toggleWidget,
-    switchTab: switchTab
+    switchTab: switchTab,
+    identify: handleIdentify,
+    reset: (confirmPrompt) => handleResetSession(confirmPrompt !== false)
   };
+
+  // Replay any queued commands if SitePulse was invoked prior to script initialization
+  if (Array.isArray(preQueue) && preQueue.length > 0) {
+    preQueue.forEach((cmd) => {
+      if (Array.isArray(cmd)) {
+        const [fn, args] = cmd;
+        if (fn === 'identify' && typeof handleIdentify === 'function') handleIdentify(args);
+        else if (fn === 'reset' && typeof handleResetSession === 'function') handleResetSession(false);
+      }
+    });
+  }
 })();

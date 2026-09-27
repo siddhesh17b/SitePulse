@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const prisma = require('./db');
@@ -12,6 +13,17 @@ const authRoutes = require('./routes/auth');
 
 const app = express();
 const server = http.createServer(app);
+
+// Rate Limiter: Max 5 new conversations per minute per IP
+const conversationInitLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // Limit each IP to 5 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too many conversations started from this IP. Please wait a minute before starting another.'
+  }
+});
 
 // Enable CORS for all origins (Embed script on client websites & Dashboard)
 app.use(cors({
@@ -255,10 +267,10 @@ app.get('/api/v1/conversations', authMiddleware, async (req, res) => {
   }
 });
 
-// Public: Find or Create Conversation for a website visitor
-app.post('/api/v1/conversations/init', async (req, res) => {
+// Public: Find or Create Conversation for a website visitor (Rate Limited: 5/min)
+app.post('/api/v1/conversations/init', conversationInitLimiter, async (req, res) => {
   try {
-    const { siteKey, visitorId, visitorName, visitorEmail } = req.body;
+    const { siteKey, visitorId, visitorName, visitorEmail, externalId } = req.body;
     if (!siteKey || !visitorId) {
       return res.status(400).json({ error: 'siteKey and visitorId are required' });
     }
@@ -266,25 +278,65 @@ app.post('/api/v1/conversations/init', async (req, res) => {
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
 
-    // Look for existing open conversation for this visitor
-    let conv = await prisma.conversation.findFirst({
-      where: {
-        siteId: site.id,
-        visitorId: visitorId
-      },
-      include: {
-        messages: {
-          orderBy: { createdAt: 'asc' }
+    // Look for existing conversation:
+    // 1. If externalId is provided (authenticated user via SitePulse.identify), match siteId + externalId
+    // 2. Otherwise match siteId + visitorId (device session)
+    // NOTE: We deliberately do NOT match purely by visitorEmail alone for unverified guests.
+    // This prevents malicious visitors from viewing another person's chats simply by typing their email.
+    let conv = null;
+    if (externalId) {
+      conv = await prisma.conversation.findFirst({
+        where: {
+          siteId: site.id,
+          externalId: String(externalId)
+        },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' }
+          }
         }
-      }
-    });
+      });
+    }
 
     if (!conv) {
+      conv = await prisma.conversation.findFirst({
+        where: {
+          siteId: site.id,
+          visitorId: visitorId
+        },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' }
+          }
+        }
+      });
+    }
+
+    if (conv) {
+      const updateData = {};
+      if (visitorEmail && visitorEmail !== conv.visitorEmail) updateData.visitorEmail = visitorEmail;
+      if (visitorName && visitorName !== conv.visitorName) updateData.visitorName = visitorName;
+      if (externalId && externalId !== conv.externalId) updateData.externalId = String(externalId);
+      if (visitorId && visitorId !== conv.visitorId) updateData.visitorId = visitorId;
+
+      if (Object.keys(updateData).length > 0) {
+        conv = await prisma.conversation.update({
+          where: { id: conv.id },
+          data: updateData,
+          include: {
+            messages: {
+              orderBy: { createdAt: 'asc' }
+            }
+          }
+        });
+      }
+    } else {
       conv = await prisma.conversation.create({
         data: {
           siteId: site.id,
           visitorId,
-          visitorName: visitorName || 'Visitor',
+          externalId: externalId ? String(externalId) : null,
+          visitorName: visitorName || (visitorEmail ? visitorEmail.split('@')[0] : 'Visitor'),
           visitorEmail: visitorEmail || null
         },
         include: {

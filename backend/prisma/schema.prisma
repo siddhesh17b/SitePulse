@@ -37,6 +37,7 @@ model Conversation {
   siteId        String
   site          Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
   visitorId     String
+  externalId    String?
   visitorName   String?
   visitorEmail  String?
   status        String    @default("open")
@@ -46,6 +47,7 @@ model Conversation {
   messages      Message[]
 
   @@index([siteId, lastMessageAt])
+  @@index([siteId, externalId])
 }
 
 model Message {

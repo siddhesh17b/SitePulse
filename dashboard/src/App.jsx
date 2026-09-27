@@ -656,12 +656,25 @@ export default function App() {
                         >
                           <div className="flex justify-between items-start">
                             <span className="font-semibold text-sm text-slate-800 truncate">
-                              {conv.visitorName || `Visitor #${conv.visitorId.slice(-6)}`}
+                              {conv.visitorName || conv.visitorEmail || `Visitor #${conv.visitorId.slice(-6)}`}
                             </span>
                             <span className="text-[11px] text-slate-400">
                               {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
+                          {conv.visitorEmail && (
+                            <div className="text-[11px] text-blue-600 font-medium truncate mt-0.5 flex items-center gap-1">
+                              <Mail className="w-3 h-3 text-blue-500 shrink-0" />
+                              <span className="truncate">{conv.visitorEmail}</span>
+                            </div>
+                          )}
+                          {conv.externalId && (
+                            <div className="mt-1">
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200 font-medium">
+                                Identified: #{conv.externalId}
+                              </span>
+                            </div>
+                          )}
                           <p className="text-xs text-slate-500 mt-1 truncate">{lastMsg}</p>
                         </div>
                       );
@@ -673,18 +686,30 @@ export default function App() {
               {selectedConv ? (
                 <div className="flex-1 flex flex-col bg-slate-50">
                   <div className="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0">
-                    <div>
+                    <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm text-slate-800">
-                        {selectedConv.visitorName || `Visitor #${selectedConv.visitorId}`}
+                        {selectedConv.visitorName || 'Visitor'}
                       </span>
-                      <span className="ml-2 text-xs text-slate-400 font-mono">
-                        (ID: {selectedConv.visitorId.slice(0, 14)}...)
+                      {selectedConv.visitorEmail && (
+                        <span className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          <span>{selectedConv.visitorEmail}</span>
+                        </span>
+                      )}
+                      {selectedConv.externalId && (
+                        <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          ✓ Identified User #{selectedConv.externalId}
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-400 font-mono">
+                        (Session: {selectedConv.visitorId.slice(0, 8)}...)
                       </span>
                     </div>
                     <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full font-medium">
                       Status: Open
                     </span>
                   </div>
+
 
                   <div className="flex-1 p-6 overflow-y-auto space-y-4">
                     {messages.map((m) => {
