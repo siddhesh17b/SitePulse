@@ -17,11 +17,14 @@ import {
   Mail,
   User as UserIcon,
   ChevronDown,
-  Layers
+  Layers,
+  Search,
+  CheckCircle2,
+  Trash2
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = window.location.origin.includes(':3000') 
+const BACKEND_URL = (window.location.origin.includes(':3000') || window.location.origin.includes(':5173'))
   ? 'http://localhost:5000' 
   : window.location.origin;
 
@@ -63,8 +66,12 @@ export default function App() {
   const [selectedConv, setSelectedConv] = useState(null);
   const [messages, setMessages] = useState([]);
   const [replyText, setReplyText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'open' | 'resolved'
+  const [isVisitorTyping, setIsVisitorTyping] = useState(false);
   const [socket, setSocket] = useState(null);
   const chatBottomRef = useRef(null);
+  const agentTypingTimeoutRef = useRef(null);
 
   // Feedback & Bug State
   const [feedbacks, setFeedbacks] = useState([]);
@@ -199,6 +206,35 @@ export default function App() {
     }
   };
 
+  // Delete Site
+  const handleDeleteSite = async (siteToDelete) => {
+    const target = siteToDelete || activeSite;
+    if (!target || !token) return;
+
+    const confirmed = confirm(
+      `Are you sure you want to remove "${target.name}" (${target.domain})?\n\nThis will permanently delete this website property along with all its conversations, visitor feedback, bug reports, and analytics data.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/sites/${target.id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        const remaining = sites.filter(s => s.id !== target.id);
+        setSites(remaining);
+        if (activeSite?.id === target.id) {
+          setActiveSite(remaining.length > 0 ? remaining[0] : null);
+        }
+      } else {
+        const data = await res.json();
+        alert('Failed to delete website: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error deleting website: ' + e.message);
+    }
+  };
+
   // 3. Socket.IO Connection for Real-Time Chat
   useEffect(() => {
     if (!activeSite) return;
@@ -228,22 +264,29 @@ export default function App() {
       }
     });
 
+    s.on('typing', ({ conversationId, senderType, isTyping }) => {
+      if (selectedConv && conversationId === selectedConv.id && senderType === 'visitor') {
+        setIsVisitorTyping(isTyping);
+      }
+    });
+
     return () => s.disconnect();
   }, [activeSite, selectedConv]);
 
   // Scroll chat to bottom
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isVisitorTyping]);
 
   // 4. Load Active Site Config & Conversations
   useEffect(() => {
     if (!activeSite) return;
-    // Widget settings
     if (activeSite.widgetSettings) {
       setSettings(activeSite.widgetSettings);
     }
-
+    setSelectedConv(null);
+    setMessages([]);
+    setIsVisitorTyping(false);
     fetchConversations();
   }, [activeSite]);
 
@@ -264,6 +307,7 @@ export default function App() {
   // Load conversation messages
   useEffect(() => {
     if (selectedConv && token) {
+      setIsVisitorTyping(false);
       if (socket) {
         socket.emit('join_conversation', { conversationId: selectedConv.id });
       }
@@ -307,7 +351,33 @@ export default function App() {
       content: replyText.trim()
     });
 
+    socket.emit('typing', {
+      conversationId: selectedConv.id,
+      senderType: 'agent',
+      isTyping: false
+    });
+
     setReplyText('');
+  };
+
+  // Toggle Conversation Status (Open / Resolved)
+  const handleToggleStatus = async () => {
+    if (!selectedConv || !token) return;
+    const newStatus = selectedConv.status === 'resolved' ? 'open' : 'resolved';
+    try {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/conversations/${selectedConv.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSelectedConv(prev => ({ ...prev, status: updated.status }));
+        setConversations(prev => prev.map(c => c.id === updated.id ? { ...c, status: updated.status } : c));
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Save Widget Settings
@@ -459,6 +529,20 @@ export default function App() {
     );
   }
 
+  const filteredConversations = conversations.filter(conv => {
+    if (statusFilter === 'open' && conv.status === 'resolved') return false;
+    if (statusFilter === 'resolved' && conv.status !== 'resolved') return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const nameMatch = conv.visitorName?.toLowerCase().includes(q);
+      const emailMatch = conv.visitorEmail?.toLowerCase().includes(q);
+      const extMatch = conv.externalId?.toLowerCase().includes(q);
+      const msgMatch = conv.messages?.[0]?.content?.toLowerCase().includes(q);
+      return nameMatch || emailMatch || extMatch || msgMatch;
+    }
+    return true;
+  });
+
   // ==========================================
   // AUTHENTICATED DASHBOARD
   // ==========================================
@@ -575,13 +659,23 @@ export default function App() {
             <div className="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/60">
               <div className="text-[10px] text-slate-400 font-medium">Site Key</div>
               <div className="font-mono text-xs text-blue-400 mt-0.5 truncate">{activeSite.apiKey}</div>
-              <button
-                onClick={copyEmbedCode}
-                className="mt-1.5 text-xs flex items-center gap-1.5 text-slate-300 hover:text-white transition"
-              >
-                {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedSnippet ? 'Copied script!' : 'Copy embed script'}</span>
-              </button>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-700/60">
+                <button
+                  onClick={copyEmbedCode}
+                  className="text-xs flex items-center gap-1.5 text-slate-300 hover:text-white transition"
+                >
+                  {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedSnippet ? 'Copied script!' : 'Copy script'}</span>
+                </button>
+                <button
+                  onClick={() => handleDeleteSite(activeSite)}
+                  title="Remove this site"
+                  className="text-xs flex items-center gap-1 text-slate-400 hover:text-rose-400 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -613,7 +707,16 @@ export default function App() {
               {activeNav === 'analytics' && 'Privacy-Preserving Website Analytics'}
             </h2>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <a
+              href={`${BACKEND_URL}/demo-site/demo2/src/index.html`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-slate-200 transition"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Test on Demo Site</span>
+            </a>
             <span className="flex items-center gap-2 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               Real-time Gateway Online
@@ -623,29 +726,82 @@ export default function App() {
 
         {/* Dynamic Views */}
         <div className="flex-1 overflow-hidden">
-          {/* TAB 1: LIVE CHAT */}
+          {!activeSite ? (
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4">
+                <Layers className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-slate-800">No Website Selected</h3>
+              <p className="text-xs text-slate-500 max-w-sm mt-1 mb-5">
+                You don't have any active websites. Create a website property to get an embed code and start chatting with visitors.
+              </p>
+              <button
+                onClick={() => setShowNewSiteModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-blue-600/20 transition flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Your First Website</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* TAB 1: LIVE CHAT */}
           {activeNav === 'chat' && (
             <div className="flex h-full">
               <div className="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="p-3 border-b border-slate-100 flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Conversations ({conversations.length})
+                    Conversations ({filteredConversations.length})
                   </span>
                   <button onClick={fetchConversations} className="text-xs text-blue-600 hover:underline font-medium">
                     Refresh
                   </button>
                 </div>
 
+                {/* Search & Status Filters */}
+                <div className="p-3 border-b border-slate-100 space-y-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search visitor, email..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 text-xs pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="flex gap-1 text-[11px]">
+                    <button
+                      onClick={() => setStatusFilter('all')}
+                      className={`px-2 py-0.5 rounded-md font-medium transition ${statusFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      All ({conversations.length})
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('open')}
+                      className={`px-2 py-0.5 rounded-md font-medium transition ${statusFilter === 'open' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      Open ({conversations.filter(c => c.status !== 'resolved').length})
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('resolved')}
+                      className={`px-2 py-0.5 rounded-md font-medium transition ${statusFilter === 'resolved' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      Resolved ({conversations.filter(c => c.status === 'resolved').length})
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                  {conversations.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-sm">
-                      No visitor conversations yet.<br />
-                      Embed your script or visit the demo page to start chatting!
+                  {filteredConversations.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 text-xs">
+                      {searchQuery ? 'No conversations matching search.' : 'No conversations found in this view.'}
                     </div>
                   ) : (
-                    conversations.map((conv) => {
+                    filteredConversations.map((conv) => {
                       const isSelected = selectedConv?.id === conv.id;
                       const lastMsg = conv.messages?.[0]?.content || 'Started conversation';
+                      const isResolved = conv.status === 'resolved';
                       return (
                         <div
                           key={conv.id}
@@ -658,7 +814,7 @@ export default function App() {
                             <span className="font-semibold text-sm text-slate-800 truncate">
                               {conv.visitorName || conv.visitorEmail || `Visitor #${conv.visitorId.slice(-6)}`}
                             </span>
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[10px] text-slate-400">
                               {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
@@ -668,13 +824,16 @@ export default function App() {
                               <span className="truncate">{conv.visitorEmail}</span>
                             </div>
                           )}
-                          {conv.externalId && (
-                            <div className="mt-1">
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {conv.externalId && (
                               <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200 font-medium">
                                 Identified: #{conv.externalId}
                               </span>
-                            </div>
-                          )}
+                            )}
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${isResolved ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-600'}`}>
+                              {isResolved ? 'Resolved' : 'Open'}
+                            </span>
+                          </div>
                           <p className="text-xs text-slate-500 mt-1 truncate">{lastMsg}</p>
                         </div>
                       );
@@ -705,11 +864,21 @@ export default function App() {
                         (Session: {selectedConv.visitorId.slice(0, 8)}...)
                       </span>
                     </div>
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full font-medium">
-                      Status: Open
-                    </span>
-                  </div>
 
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleToggleStatus}
+                        className={`text-xs px-3 py-1 rounded-full font-medium transition flex items-center gap-1.5 ${
+                          selectedConv.status === 'resolved'
+                            ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                            : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{selectedConv.status === 'resolved' ? 'Reopen Conversation' : 'Mark Resolved'}</span>
+                      </button>
+                    </div>
+                  </div>
 
                   <div className="flex-1 p-6 overflow-y-auto space-y-4">
                     {messages.map((m) => {
@@ -735,11 +904,28 @@ export default function App() {
                     <div ref={chatBottomRef} />
                   </div>
 
+                  {/* Visitor Typing Indicator */}
+                  {isVisitorTyping && (
+                    <div className="px-6 py-2 text-xs text-blue-600 italic bg-blue-50/70 flex items-center gap-2 border-t border-blue-100/70 animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <span>Visitor is typing a reply...</span>
+                    </div>
+                  )}
+
                   <form onSubmit={handleSendReply} className="p-4 bg-white border-t border-slate-200 flex gap-3">
                     <input
                       type="text"
                       value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
+                      onChange={(e) => {
+                        setReplyText(e.target.value);
+                        if (socket && selectedConv) {
+                          socket.emit('typing', { conversationId: selectedConv.id, senderType: 'agent', isTyping: true });
+                          clearTimeout(agentTypingTimeoutRef.current);
+                          agentTypingTimeoutRef.current = setTimeout(() => {
+                            socket.emit('typing', { conversationId: selectedConv.id, senderType: 'agent', isTyping: false });
+                          }, 1200);
+                        }
+                      }}
                       placeholder="Type your reply to the visitor..."
                       className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
                     />
@@ -853,6 +1039,28 @@ export default function App() {
                   {saveSuccess ? <Check className="w-4 h-4 text-emerald-300" /> : <Sparkles className="w-4 h-4" />}
                   <span>{savingSettings ? 'Saving...' : (saveSuccess ? 'Changes Published Live!' : 'Save & Publish Changes')}</span>
                 </button>
+
+                {/* Danger Zone: Delete Site */}
+                {activeSite && (
+                  <div className="pt-4 border-t border-slate-200 mt-2">
+                    <div className="p-4 bg-rose-50/70 border border-rose-200 rounded-xl space-y-2">
+                      <span className="text-xs font-semibold text-rose-800 uppercase tracking-wider block">
+                        Danger Zone
+                      </span>
+                      <p className="text-xs text-rose-700 leading-relaxed">
+                        Permanently delete <strong>{activeSite.name}</strong> ({activeSite.domain}) and all associated chats, feedback, and analytics data.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSite(activeSite)}
+                        className="mt-1 w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-2 rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Website Property</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Live Preview */}
@@ -976,6 +1184,8 @@ export default function App() {
                 )}
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       </main>

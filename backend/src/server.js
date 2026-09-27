@@ -185,6 +185,26 @@ app.post('/api/v1/sites', authMiddleware, async (req, res) => {
   }
 });
 
+// Protected: Delete a Site and all its associated data
+app.delete('/api/v1/sites/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = await prisma.site.findUnique({ where: { id } });
+    if (!site) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    // Allow deleting if user owns it or if it is demo site
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this site' });
+    }
+
+    await prisma.site.delete({ where: { id } });
+    res.json({ success: true, message: 'Site deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. Widget Customization / Configuration API
 // Public: Fetched by the embed script to customize itself dynamically on client website
 app.get('/api/v1/widget/config', async (req, res) => {
@@ -360,6 +380,21 @@ app.get('/api/v1/conversations/:id/messages', authMiddleware, async (req, res) =
       orderBy: { createdAt: 'asc' }
     });
     res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Protected: Update Conversation Status (e.g. "open" or "resolved")
+app.patch('/api/v1/conversations/:id/status', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const conv = await prisma.conversation.update({
+      where: { id },
+      data: { status: status || 'open' }
+    });
+    res.json(conv);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

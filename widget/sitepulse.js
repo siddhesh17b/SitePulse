@@ -698,6 +698,18 @@
       if (e.key === 'Enter') handleSendMessage();
     });
 
+    // Typing indicator from visitor
+    let visitorTypingTimeout = null;
+    input.addEventListener('input', () => {
+      if (socket && conversation && conversation.id) {
+        socket.emit('typing', { conversationId: conversation.id, senderType: 'visitor', isTyping: true });
+        clearTimeout(visitorTypingTimeout);
+        visitorTypingTimeout = setTimeout(() => {
+          socket.emit('typing', { conversationId: conversation.id, senderType: 'visitor', isTyping: false });
+        }, 1200);
+      }
+    });
+
     // Email Gate submission
     const gateForm = shadowRoot.getElementById('sp-gate-form');
     if (gateForm) {
