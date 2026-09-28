@@ -29,19 +29,39 @@
     }
   }
 
-  // 2. Generate or retrieve persistent visitor ID (for conversation continuity)
-  function getVisitorId() {
-    let vid = localStorage.getItem('sitepulse_visitor_id');
-    if (!vid) {
-      vid = 'v_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
-      localStorage.setItem('sitepulse_visitor_id', vid);
+  // 2. Chat Session Management
+  // Immediately purge any legacy visitor credentials from localStorage so visitors are never automatically logged in
+  try {
+    localStorage.removeItem('sitepulse_visitor_email');
+    localStorage.removeItem('sitepulse_visitor_name');
+    localStorage.removeItem('sitepulse_external_id');
+    localStorage.removeItem('sitepulse_visitor_id');
+  } catch (e) {}
+
+  // Generate or retrieve session-scoped chat session ID (persists across reloads in the same tab, but clears on browser/tab close)
+  function getChatSessionId() {
+    try {
+      let sid = sessionStorage.getItem('sitepulse_chat_session_id');
+      if (!sid) {
+        sid = 'cs_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+        sessionStorage.setItem('sitepulse_chat_session_id', sid);
+      }
+      return sid;
+    } catch (e) {
+      return 'cs_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
     }
-    return vid;
   }
-  let visitorId = getVisitorId();
-  let visitorEmail = localStorage.getItem('sitepulse_visitor_email') || '';
-  let visitorName = localStorage.getItem('sitepulse_visitor_name') || '';
-  let externalId = localStorage.getItem('sitepulse_external_id') || '';
+
+  let visitorId = getChatSessionId();
+  let visitorEmail = '';
+  let visitorName = '';
+  let externalId = '';
+
+  try {
+    visitorEmail = sessionStorage.getItem('sitepulse_visitor_email') || '';
+    visitorName = sessionStorage.getItem('sitepulse_visitor_name') || '';
+    externalId = sessionStorage.getItem('sitepulse_external_id') || '';
+  } catch (e) {}
 
   // Capture early queue if SitePulse was called before script loaded
   const preQueue = (window.SitePulse && window.SitePulse._q) || (Array.isArray(window.SitePulse) ? window.SitePulse : []);
@@ -128,7 +148,12 @@
 
     if (widgetSettings.enableChat) {
       loadSocketIO(() => {
-        setupRealtimeChat();
+        // Only auto-connect if user is already identified or has an active chat session in this tab
+        let isChatActive = false;
+        try { isChatActive = sessionStorage.getItem('sitepulse_chat_active') === 'true'; } catch (e) {}
+        if (visitorEmail || externalId || isChatActive) {
+          setupRealtimeChat();
+        }
       });
     }
   }
@@ -595,6 +620,25 @@
         opacity: 0.92;
       }
 
+      .sp-guest-btn {
+        background: transparent;
+        color: #64748b;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 9px;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+        margin-top: 4px;
+      }
+      .sp-guest-btn:hover {
+        background: #f1f5f9;
+        color: #334155;
+        border-color: #94a3b8;
+      }
+
       .sp-success-msg {
         display: none;
         padding: 20px;
@@ -657,13 +701,13 @@
         <!-- 1. Chat Tab Panel -->
         <div class="sp-tab-panel active" id="sp-panel-chat">
           <!-- Active Session Banner & Reset Option -->
-          <div class="sp-chat-top-banner" id="sp-chat-banner" style="display: ${(visitorEmail || externalId) ? 'flex' : 'none'};">
-            <span class="sp-visitor-tag" id="sp-visitor-tag">Chatting as: <strong>${escapeHTML(visitorName ? `${visitorName} (${visitorEmail || externalId})` : (visitorEmail || externalId))}</strong></span>
+          <div class="sp-chat-top-banner" id="sp-chat-banner" style="display: ${(visitorEmail || externalId || (sessionStorage.getItem('sitepulse_chat_active') === 'true')) ? 'flex' : 'none'};">
+            <span class="sp-visitor-tag" id="sp-visitor-tag">Chatting as: <strong>${escapeHTML(visitorName ? (visitorEmail ? `${visitorName} (${visitorEmail})` : visitorName) : (visitorEmail || externalId || 'Visitor'))}</strong></span>
             <button type="button" class="sp-end-chat-link" id="sp-end-chat-btn">End Conversation / Not you?</button>
           </div>
 
-          <!-- Required Email Gate (bypassed if identified or email provided) -->
-          <div class="sp-email-gate" id="sp-email-gate" style="display: ${(visitorEmail || externalId) ? 'none' : 'flex'};">
+          <!-- Email Gate (bypassed only if actively identified in this session) -->
+          <div class="sp-email-gate" id="sp-email-gate" style="display: ${(visitorEmail || externalId || (sessionStorage.getItem('sitepulse_chat_active') === 'true')) ? 'none' : 'flex'};">
             <div class="sp-gate-card">
               <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
               <h4>Start a Conversation</h4>
@@ -678,6 +722,7 @@
                   <input type="email" class="sp-input" id="sp-gate-email" placeholder="name@example.com" required />
                 </div>
                 <button type="submit" class="sp-submit-btn" style="margin-top: 6px;">Continue to Chat</button>
+                <button type="button" class="sp-guest-btn" id="sp-gate-guest-btn">Or chat as Guest</button>
               </form>
             </div>
           </div>
@@ -792,8 +837,11 @@
 
         visitorEmail = emailVal;
         visitorName = nameVal;
-        localStorage.setItem('sitepulse_visitor_email', visitorEmail);
-        if (visitorName) localStorage.setItem('sitepulse_visitor_name', visitorName);
+        try {
+          sessionStorage.setItem('sitepulse_visitor_email', visitorEmail);
+          if (visitorName) sessionStorage.setItem('sitepulse_visitor_name', visitorName);
+          sessionStorage.setItem('sitepulse_chat_active', 'true');
+        } catch (err) {}
 
         // Hide gate and show banner
         shadowRoot.getElementById('sp-email-gate').style.display = 'none';
@@ -805,25 +853,37 @@
           banner.style.display = 'flex';
         }
 
-        // Connect conversation with email
-        fetch(`${backendUrl}/api/v1/conversations/init`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            siteKey,
-            visitorId,
-            visitorEmail,
-            visitorName,
-            externalId: externalId || null
-          })
-        })
-          .then((res) => res.json())
-          .then((conv) => {
-            applyConversation(conv);
-            if (socket) {
-              socket.emit('join_conversation', { conversationId: conv.id });
-            }
-          });
+        // Initialize real-time chat with the provided credentials
+        loadSocketIO(() => {
+          setupRealtimeChat();
+        });
+      });
+    }
+
+    // Guest Chat button
+    const guestBtn = shadowRoot.getElementById('sp-gate-guest-btn');
+    if (guestBtn) {
+      guestBtn.addEventListener('click', () => {
+        visitorName = 'Guest';
+        visitorEmail = '';
+        try {
+          sessionStorage.setItem('sitepulse_visitor_name', 'Guest');
+          sessionStorage.setItem('sitepulse_chat_active', 'true');
+        } catch (err) {}
+
+        // Hide gate and show banner
+        shadowRoot.getElementById('sp-email-gate').style.display = 'none';
+        const banner = shadowRoot.getElementById('sp-chat-banner');
+        const visitorTag = shadowRoot.getElementById('sp-visitor-tag');
+        if (banner && visitorTag) {
+          visitorTag.innerHTML = `Chatting as: <strong>Guest</strong>`;
+          banner.style.display = 'flex';
+        }
+
+        // Initialize real-time chat
+        loadSocketIO(() => {
+          setupRealtimeChat();
+        });
       });
     }
 
@@ -848,13 +908,28 @@
       return;
     }
 
-    // 1. Clear LocalStorage
-    localStorage.removeItem('sitepulse_visitor_id');
-    localStorage.removeItem('sitepulse_visitor_email');
-    localStorage.removeItem('sitepulse_visitor_name');
-    localStorage.removeItem('sitepulse_external_id');
+    // 1. Clear SessionStorage & legacy LocalStorage
+    try {
+      sessionStorage.removeItem('sitepulse_chat_session_id');
+      sessionStorage.removeItem('sitepulse_visitor_email');
+      sessionStorage.removeItem('sitepulse_visitor_name');
+      sessionStorage.removeItem('sitepulse_external_id');
+      sessionStorage.removeItem('sitepulse_chat_active');
 
-    // 2. Reset in-memory state
+      localStorage.removeItem('sitepulse_visitor_id');
+      localStorage.removeItem('sitepulse_visitor_email');
+      localStorage.removeItem('sitepulse_visitor_name');
+      localStorage.removeItem('sitepulse_external_id');
+    } catch (e) {}
+
+    // 2. Disconnect existing socket room if any
+    if (socket && conversation && conversation.id) {
+      try {
+        socket.emit('leave_conversation', { conversationId: conversation.id });
+      } catch (e) {}
+    }
+
+    // 3. Reset in-memory state
     visitorEmail = '';
     visitorName = '';
     externalId = '';
@@ -862,8 +937,8 @@
     unreadCount = 0;
     if (shadowRoot) updateBadge();
 
-    // 3. Generate a fresh visitor ID
-    visitorId = getVisitorId();
+    // 4. Generate a fresh chat session ID
+    visitorId = getChatSessionId();
 
     // 4. Reset Chat DOM
     if (shadowRoot) {
@@ -1000,16 +1075,17 @@
 
     if (email) {
       visitorEmail = email.trim();
-      localStorage.setItem('sitepulse_visitor_email', visitorEmail);
+      try { sessionStorage.setItem('sitepulse_visitor_email', visitorEmail); } catch (e) {}
     }
     if (name) {
       visitorName = name.trim();
-      localStorage.setItem('sitepulse_visitor_name', visitorName);
+      try { sessionStorage.setItem('sitepulse_visitor_name', visitorName); } catch (e) {}
     }
     if (userId !== undefined && userId !== null) {
       externalId = String(userId).trim();
-      localStorage.setItem('sitepulse_external_id', externalId);
+      try { sessionStorage.setItem('sitepulse_external_id', externalId); } catch (e) {}
     }
+    try { sessionStorage.setItem('sitepulse_chat_active', 'true'); } catch (e) {}
 
     // Immediately update UI if widget DOM is mounted
     if (shadowRoot) {
@@ -1030,29 +1106,16 @@
       if (bugEmail && visitorEmail) bugEmail.value = visitorEmail;
     }
 
-    // Connect or switch conversation with backend
-    fetch(`${backendUrl}/api/v1/conversations/init`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        siteKey,
-        visitorId,
-        visitorEmail: visitorEmail || null,
-        visitorName: visitorName || null,
-        externalId: externalId || null
-      })
-    })
-      .then((res) => res.json())
-      .then((conv) => {
-        applyConversation(conv);
-        if (socket && socket.connected && conv.id) {
-          socket.emit('join_conversation', { conversationId: conv.id });
-        }
-      })
-      .catch((err) => console.warn('[SitePulse] Identify conversation sync error:', err));
+    loadSocketIO(() => {
+      setupRealtimeChat();
+    });
   }
 
+  let isConnectingChat = false;
   function setupRealtimeChat() {
+    if (isConnectingChat) return;
+    isConnectingChat = true;
+
     fetch(`${backendUrl}/api/v1/conversations/init`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1066,51 +1129,59 @@
     })
       .then((res) => res.json())
       .then((conv) => {
+        isConnectingChat = false;
         applyConversation(conv);
 
         // Connect Socket.IO
-        socket = window.io(backendUrl);
+        if (!socket) {
+          socket = window.io(backendUrl);
 
-        socket.on('connect', () => {
-          if (conversation && conversation.id) {
-            socket.emit('join_conversation', { conversationId: conversation.id });
-          }
-        });
-
-        // Listen for new messages
-        socket.on('message_received', (msg) => {
-          if (conversation && msg.conversationId === conversation.id) {
-            appendMessage(msg.content, msg.senderType, msg.senderName, true);
-            if (!isOpen && msg.senderType === 'agent') {
-              unreadCount++;
-              updateBadge();
+          socket.on('connect', () => {
+            if (conversation && conversation.id) {
+              socket.emit('join_conversation', { conversationId: conversation.id });
             }
-          }
-        });
+          });
 
-        // Listen for typing
-        socket.on('typing', ({ senderType, isTyping }) => {
-          if (senderType === 'agent') {
-            const typingEl = shadowRoot.getElementById('sp-typing');
-            if (typingEl) typingEl.style.display = isTyping ? 'block' : 'none';
-          }
-        });
+          // Listen for new messages
+          socket.on('message_received', (msg) => {
+            if (conversation && msg.conversationId === conversation.id) {
+              appendMessage(msg.content, msg.senderType, msg.senderName, true);
+              if (!isOpen && msg.senderType === 'agent') {
+                unreadCount++;
+                updateBadge();
+              }
+            }
+          });
 
-        // Listen for live widget settings update
-        socket.on('widget_settings_updated', (newSettings) => {
-          widgetSettings = { ...widgetSettings, ...newSettings };
-          const titleEl = shadowRoot.getElementById('sp-title');
-          const subtitleEl = shadowRoot.getElementById('sp-subtitle');
-          if (titleEl) titleEl.textContent = widgetSettings.title;
-          if (subtitleEl) subtitleEl.textContent = widgetSettings.subtitle;
-        });
+          // Listen for typing
+          socket.on('typing', ({ senderType, isTyping }) => {
+            if (senderType === 'agent') {
+              const typingEl = shadowRoot.getElementById('sp-typing');
+              if (typingEl) typingEl.style.display = isTyping ? 'block' : 'none';
+            }
+          });
 
-        // Listen for chats wiped by admin
-        socket.on('all_conversations_deleted', () => {
-          handleResetSession(false);
-        });
+          // Listen for live widget settings update
+          socket.on('widget_settings_updated', (newSettings) => {
+            widgetSettings = { ...widgetSettings, ...newSettings };
+            const titleEl = shadowRoot.getElementById('sp-title');
+            const subtitleEl = shadowRoot.getElementById('sp-subtitle');
+            if (titleEl) titleEl.textContent = widgetSettings.title;
+            if (subtitleEl) subtitleEl.textContent = widgetSettings.subtitle;
+          });
+
+          // Listen for chats wiped by admin
+          socket.on('all_conversations_deleted', () => {
+            handleResetSession(false);
+          });
+        } else if (socket.connected && conv && conv.id) {
+          socket.emit('join_conversation', { conversationId: conv.id });
+        }
       })
-      .catch((err) => console.error('[SitePulse] Chat init failed:', err));
+      .catch((err) => {
+        isConnectingChat = false;
+        console.error('[SitePulse] Chat init failed:', err);
+      });
   }
 
   function handleSendMessage() {
