@@ -718,21 +718,15 @@ export default function App() {
                   </button>
                 </span>
               ) : (
-                !isInitialized ? (
-                  <span>
-                    First-time admin setup?{' '}
-                    <button
-                      onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                      className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
-                    >
-                      Create Account
-                    </button>
-                  </span>
-                ) : (
-                  <span className="text-xs text-slate-400 font-medium">
-                    Protected Administrator Console
-                  </span>
-                )
+                <span>
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                    className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
+                  >
+                    Create Account
+                  </button>
+                </span>
               )}
             </div>
           </div>

@@ -23,16 +23,10 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// 2. Signup / Initial Administrator Onboarding
+// 2. Signup / Account Creation
 router.post('/signup', async (req, res) => {
   try {
-    // Only allow signup during initial system initialization
-    const userCount = await prisma.user.count();
-    if (userCount > 0) {
-      return res.status(403).json({
-        error: 'Registration is closed. An administrator account is already configured on this instance.'
-      });
-    }
+    const isFirstUser = (await prisma.user.count()) === 0;
 
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
@@ -70,7 +64,7 @@ router.post('/signup', async (req, res) => {
         name: trimmedName,
         email: trimmedEmail,
         password: passwordHash,
-        role: 'admin'
+        role: isFirstUser ? 'admin' : 'agent'
       }
     });
 
