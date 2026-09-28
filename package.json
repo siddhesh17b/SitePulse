@@ -6,6 +6,7 @@
     "dev:backend": "npm --prefix backend run dev",
     "start:backend": "npm --prefix backend start",
     "dev:dashboard": "npm --prefix dashboard run dev",
+    "start:dashboard": "npm --prefix dashboard run dev",
     "build:dashboard": "npm --prefix dashboard run build"
   }
 }
