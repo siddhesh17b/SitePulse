@@ -6,6 +6,11 @@ const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
+// RFC-compliant email format regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Pre-computed dummy hash to prevent timing-based user enumeration attacks
+const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+
 // 1. Check if the system has been initialized with an admin
 router.get('/status', async (req, res) => {
   try {
@@ -18,20 +23,39 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// 2. Signup / Initial Onboarding
+// 2. Signup / Initial Administrator Onboarding
 router.post('/signup', async (req, res) => {
   try {
+    // Only allow signup during initial system initialization
+    const userCount = await prisma.user.count();
+    if (userCount > 0) {
+      return res.status(403).json({
+        error: 'Registration is closed. An administrator account is already configured on this instance.'
+      });
+    }
+
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    const trimmedName = String(name).trim();
+    const trimmedEmail = String(email).toLowerCase().trim();
+
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      return res.status(400).json({ error: 'Name must be between 2 and 100 characters' });
+    }
+
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return res.status(400).json({ error: 'Password must be between 8 and 128 characters long' });
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() }
+      where: { email: trimmedEmail }
     });
 
     if (existingUser) {
@@ -41,18 +65,16 @@ router.post('/signup', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const isFirstUser = (await prisma.user.count()) === 0;
-
     const user = await prisma.user.create({
       data: {
-        name: name.trim(),
-        email: email.toLowerCase().trim(),
+        name: trimmedName,
+        email: trimmedEmail,
         password: passwordHash,
-        role: isFirstUser ? 'admin' : 'agent'
+        role: 'admin'
       }
     });
 
-    // Check if demo site exists, if so attach it to first admin
+    // Attach demo site to first admin if unassigned
     const demoSite = await prisma.site.findUnique({ where: { apiKey: 'sp_demo_12345' } });
     if (demoSite && !demoSite.userId) {
       await prisma.site.update({
@@ -90,16 +112,16 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    const trimmedEmail = String(email).toLowerCase().trim();
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() }
+      where: { email: trimmedEmail }
     });
 
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
+    // Timing attack mitigation: always execute bcrypt compare
+    const hashToCompare = user ? user.password : DUMMY_HASH;
+    const isMatch = await bcrypt.compare(String(password), hashToCompare);
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!user || !isMatch) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 

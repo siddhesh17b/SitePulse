@@ -88,6 +88,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
+  const [isInitialized, setIsInitialized] = useState(true);
   const [authError, setAuthError] = useState('');
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
 
@@ -154,24 +155,53 @@ export default function App() {
     topPages: []
   });
 
-  // Helper for authenticated fetch
-  const authFetch = (url, options = {}) => {
-    return fetch(url, {
+  const handleLogout = () => {
+    localStorage.removeItem('sitepulse_admin_token');
+    setToken(null);
+    setUser(null);
+    setSites([]);
+    setActiveSite(null);
+  };
+
+  // Helper for authenticated fetch with automatic 401 interception
+  const authFetch = async (url, options = {}) => {
+    const res = await fetch(url, {
       ...options,
       headers: {
         ...options.headers,
         'Authorization': `Bearer ${token}`
       }
     });
+    if (res.status === 401) {
+      handleLogout();
+    }
+    return res;
   };
 
   // 1. Check Auth Status on Load
   useEffect(() => {
     const initAuth = async () => {
       setAuthLoading(true);
+
+      // Check system initialization state
+      try {
+        const statusRes = await fetch(`${BACKEND_URL}/api/v1/auth/status`);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setIsInitialized(statusData.initialized);
+          if (!statusData.initialized) {
+            setAuthMode('signup');
+          }
+        }
+      } catch (e) {
+        console.warn('System status check warning:', e);
+      }
+
       if (token) {
         try {
-          const res = await authFetch(`${BACKEND_URL}/api/v1/auth/me`);
+          const res = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
           if (res.ok) {
             const data = await res.json();
             setUser(data);
@@ -211,14 +241,6 @@ export default function App() {
     } catch (err) {
       setAuthError(err.message);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('sitepulse_admin_token');
-    setToken(null);
-    setUser(null);
-    setSites([]);
-    setActiveSite(null);
   };
 
   // 2. Load User Sites
@@ -667,7 +689,7 @@ export default function App() {
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     value={authForm.password}
                     onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                     placeholder="••••••••"
@@ -696,15 +718,21 @@ export default function App() {
                   </button>
                 </span>
               ) : (
-                <span>
-                  First-time admin setup?{' '}
-                  <button
-                    onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                    className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
-                  >
-                    Create Account
-                  </button>
-                </span>
+                !isInitialized ? (
+                  <span>
+                    First-time admin setup?{' '}
+                    <button
+                      onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                      className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
+                    >
+                      Create Account
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400 font-medium">
+                    Protected Administrator Console
+                  </span>
+                )
               )}
             </div>
           </div>
