@@ -90,7 +90,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
   const [isInitialized, setIsInitialized] = useState(true);
   const [authError, setAuthError] = useState('');
-  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
   // Navigation & Sites state
   const [activeNav, setActiveNav] = useState('chat'); // 'chat' | 'customizer' | 'feedback' | 'analytics' | 'settings'
@@ -222,13 +222,29 @@ export default function App() {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+
+    if (authMode === 'signup') {
+      if (authForm.password !== authForm.confirmPassword) {
+        setAuthError('Passwords do not match. Please retype your password.');
+        return;
+      }
+      if (authForm.password.length < 8) {
+        setAuthError('Password must be at least 8 characters long.');
+        return;
+      }
+    }
+
     const endpoint = authMode === 'signup' ? '/api/v1/auth/signup' : '/api/v1/auth/login';
 
     try {
+      const payload = authMode === 'signup'
+        ? { name: authForm.name, email: authForm.email, password: authForm.password, confirmPassword: authForm.confirmPassword }
+        : { email: authForm.email, password: authForm.password };
+
       const res = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(authForm)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) {
@@ -692,11 +708,38 @@ export default function App() {
                     minLength={8}
                     value={authForm.password}
                     onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                    placeholder="••••••••"
+                    placeholder={authMode === 'signup' ? '•••••••• (min. 8 characters)' : '••••••••'}
                     className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
                   />
                 </div>
               </div>
+
+              {authMode === 'signup' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Retype Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={authForm.confirmPassword}
+                      onChange={(e) => setAuthForm({ ...authForm, confirmPassword: e.target.value })}
+                      placeholder="Retype password to confirm"
+                      className={`w-full bg-slate-50/50 border ${
+                        authForm.confirmPassword && authForm.password !== authForm.confirmPassword
+                          ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
+                          : 'border-slate-200 focus:border-[#287170] focus:ring-[#287170]/15'
+                      } rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 transition`}
+                    />
+                  </div>
+                  {authForm.confirmPassword && authForm.password !== authForm.confirmPassword && (
+                    <p className="text-xs text-rose-600 mt-1.5 font-medium">Passwords do not match</p>
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -711,7 +754,7 @@ export default function App() {
                 <span>
                   Already have an account?{' '}
                   <button
-                    onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                    onClick={() => { setAuthMode('login'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
                     className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
                   >
                     Sign In
@@ -721,7 +764,7 @@ export default function App() {
                 <span>
                   Don't have an account?{' '}
                   <button
-                    onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                    onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
                     className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
                   >
                     Create Account
@@ -993,7 +1036,7 @@ export default function App() {
               </div>
               <h3 className="text-base font-bold text-slate-900">No Website Selected</h3>
               <p className="text-xs text-slate-500 max-w-sm mt-1 mb-5">
-                You don't have any active websites. Create a website property to get an embed code and start chatting with visitors.
+                You don't have any active websites. Add a website property to get an embed code and start chatting with visitors.
               </p>
               <button
                 onClick={() => setShowNewSiteModal(true)}
@@ -1715,7 +1758,7 @@ export default function App() {
                   type="submit"
                   className="px-5 py-2.5 text-base font-semibold bg-[#287170] hover:bg-[#205d5c] text-white rounded-xl shadow-sm shadow-[#287170]/25 transition cursor-pointer"
                 >
-                  Create Website
+                  Add Website
                 </button>
               </div>
             </form>

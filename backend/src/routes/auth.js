@@ -28,9 +28,13 @@ router.post('/signup', async (req, res) => {
   try {
     const isFirstUser = (await prisma.user.count()) === 0;
 
-    const { name, email, password } = req.body;
+    const { name, email, password, confirmPassword } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    if (confirmPassword !== undefined && confirmPassword !== password) {
+      return res.status(400).json({ error: 'Passwords do not match. Please retype your password.' });
     }
 
     const trimmedName = String(name).trim();
