@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
-const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
+const { authMiddleware, JWT_SECRET, SERVER_INSTANCE_ID } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -16,7 +16,8 @@ router.get('/status', async (req, res) => {
   try {
     const userCount = await prisma.user.count();
     res.json({
-      initialized: userCount > 0
+      initialized: userCount > 0,
+      serverInstance: SERVER_INSTANCE_ID
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -81,15 +82,22 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Generate JWT
+    // Generate JWT tied to this server instance
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role, name: user.name },
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        instanceId: SERVER_INSTANCE_ID
+      },
       JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: '24h' }
     );
 
     res.status(201).json({
       token,
+      serverInstance: SERVER_INSTANCE_ID,
       user: {
         id: user.id,
         name: user.name,
@@ -124,13 +132,20 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role, name: user.name },
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        instanceId: SERVER_INSTANCE_ID
+      },
       JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: '24h' }
     );
 
     res.json({
       token,
+      serverInstance: SERVER_INSTANCE_ID,
       user: {
         id: user.id,
         name: user.name,

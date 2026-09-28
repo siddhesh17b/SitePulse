@@ -83,8 +83,19 @@ function getContrastColors(hexColor) {
 }
 
 export default function App() {
-  // Auth state
-  const [token, setToken] = useState(localStorage.getItem('sitepulse_admin_token'));
+  // Purge any legacy persistent tokens from localStorage
+  try {
+    localStorage.removeItem('sitepulse_admin_token');
+  } catch (e) {}
+
+  // Auth state (session-scoped: clears on tab/browser close or server restart)
+  const [token, setToken] = useState(() => {
+    try {
+      return sessionStorage.getItem('sitepulse_admin_token') || null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
@@ -156,11 +167,16 @@ export default function App() {
   });
 
   const handleLogout = () => {
-    localStorage.removeItem('sitepulse_admin_token');
+    try {
+      sessionStorage.removeItem('sitepulse_admin_token');
+      sessionStorage.removeItem('sitepulse_server_instance');
+      localStorage.removeItem('sitepulse_admin_token');
+    } catch (e) {}
     setToken(null);
     setUser(null);
     setSites([]);
     setActiveSite(null);
+    setAuthMode('login');
   };
 
   // Helper for authenticated fetch with automatic 401 interception
@@ -178,17 +194,19 @@ export default function App() {
     return res;
   };
 
-  // 1. Check Auth Status on Load
+  // 1. Check Auth Status on Load & Validate Server Instance
   useEffect(() => {
     const initAuth = async () => {
       setAuthLoading(true);
 
-      // Check system initialization state
+      // Check system initialization state & server instance
+      let currentServerInstance = null;
       try {
         const statusRes = await fetch(`${BACKEND_URL}/api/v1/auth/status`);
         if (statusRes.ok) {
           const statusData = await statusRes.json();
           setIsInitialized(statusData.initialized);
+          currentServerInstance = statusData.serverInstance;
           if (!statusData.initialized) {
             setAuthMode('signup');
           }
@@ -197,14 +215,32 @@ export default function App() {
         console.warn('System status check warning:', e);
       }
 
-      if (token) {
+      // If server was restarted, the instance ID changed -> force session expiry to login page
+      let savedInstance = null;
+      try { savedInstance = sessionStorage.getItem('sitepulse_server_instance'); } catch (e) {}
+      if (savedInstance && currentServerInstance && savedInstance !== currentServerInstance) {
+        handleLogout();
+        setAuthLoading(false);
+        return;
+      }
+
+      let activeToken = null;
+      try {
+        activeToken = sessionStorage.getItem('sitepulse_admin_token');
+      } catch (e) {}
+
+      if (activeToken) {
         try {
           const res = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${activeToken}` }
           });
           if (res.ok) {
             const data = await res.json();
             setUser(data);
+            setToken(activeToken);
+            if (currentServerInstance) {
+              try { sessionStorage.setItem('sitepulse_server_instance', currentServerInstance); } catch (e) {}
+            }
           } else {
             handleLogout();
           }
@@ -212,6 +248,8 @@ export default function App() {
           console.error(e);
           handleLogout();
         }
+      } else {
+        handleLogout();
       }
       setAuthLoading(false);
     };
@@ -251,7 +289,13 @@ export default function App() {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      localStorage.setItem('sitepulse_admin_token', data.token);
+      try {
+        sessionStorage.setItem('sitepulse_admin_token', data.token);
+        if (data.serverInstance) {
+          sessionStorage.setItem('sitepulse_server_instance', data.serverInstance);
+        }
+      } catch (e) {}
+
       setToken(data.token);
       setUser(data.user);
     } catch (err) {
