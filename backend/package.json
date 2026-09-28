@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:push": "prisma db push"
+    "prisma:push": "prisma db push",
+    "db:reset": "node src/reset-db.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
