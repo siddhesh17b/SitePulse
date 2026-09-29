@@ -1,0 +1,80 @@
+---
+config:
+  themeVariables:
+    fontSize: 35px
+---
+flowchart LR
+ subgraph SHADOW["Shadow DOM (#shadow-root)"]
+        WIDGET["sitepulse.js (&lt;40KB)"]
+        CHAT_UI["Live Chat &amp; Typing"]
+        FEED_UI["5-Star Feedback"]
+        BUG_UI["Bug Diagnostics"]
+        ANALYTICS_UI["Privacy Analytics"]
+        SESS["sessionStorage"]
+  end
+ subgraph TIER1["1. Client Tier"]
+        HOST["Host Website DOM"]
+        SHADOW
+  end
+ subgraph TIER2["2. Transport Layer"]
+        WS["WebSocket (Socket.IO)<br>&lt;15ms Duplex Events"]
+        REST["REST API (Express)<br>Config, Bugs &amp; Analytics"]
+  end
+ subgraph TIER3["3. Backend Engine (Node.js)"]
+        AUTH["Auth &amp; Session Manager"]
+        SOCKET_MGR["Socket Room Manager"]
+        DATA_PIPELINE["Data Ingestion Pipeline"]
+        PRISMA["Prisma ORM 5.x"]
+  end
+ subgraph TIER4["4. Persistence"]
+        DB[("PostgreSQL DB<br>Sites, Chats &amp; Analytics")]
+  end
+ subgraph TIER5["5. Admin Tier (React 18)"]
+        DASH_UI["Admin Dashboard SPA"]
+        INBOX["Live Support Inbox"]
+        CUSTOMIZER["Widget Customizer"]
+        DIAG_VIEW["Bug Diagnostic Hub"]
+        METRICS["Analytics Graphs"]
+  end
+    HOST -- "1-Line Embed" --> WIDGET
+    WIDGET --- CHAT_UI & FEED_UI & BUG_UI & ANALYTICS_UI
+    CHAT_UI -.-> SESS
+    CHAT_UI <== WebSocket ==> WS
+    FEED_UI -- POST Feedback --> REST
+    BUG_UI -- POST Diagnostics --> REST
+    ANALYTICS_UI -- POST Beacon --> REST
+    WS <==> SOCKET_MGR
+    REST --> DATA_PIPELINE & AUTH
+    SOCKET_MGR --> PRISMA
+    DATA_PIPELINE --> PRISMA
+    AUTH --> PRISMA
+    PRISMA <==> DB
+    SOCKET_MGR <== Live Chat Sync ==> INBOX
+    REST <== Admin REST API ==> DASH_UI
+    DASH_UI --- INBOX & CUSTOMIZER & DIAG_VIEW & METRICS
+
+     WIDGET:::shadow
+     CHAT_UI:::shadow
+     FEED_UI:::shadow
+     BUG_UI:::shadow
+     ANALYTICS_UI:::shadow
+     SESS:::shadow
+     HOST:::client
+     WS:::transport
+     REST:::transport
+     AUTH:::backend
+     SOCKET_MGR:::backend
+     DATA_PIPELINE:::backend
+     PRISMA:::backend
+     DB:::db
+     DASH_UI:::admin
+     INBOX:::admin
+     CUSTOMIZER:::admin
+     DIAG_VIEW:::admin
+     METRICS:::admin
+    classDef client fill:#EBF3FB,stroke:#072A52,stroke-width:2px,color:#072A52
+    classDef shadow fill:#FEF3EB,stroke:#EF6019,stroke-width:2px,stroke-dasharray: 4 4,color:#8A2E00
+    classDef transport fill:#F3F4F6,stroke:#4B5563,stroke-width:1.5px,color:#1F2937
+    classDef backend fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
+    classDef db fill:#EDE7F6,stroke:#5E35B1,stroke-width:2px,color:#311B92
+    classDef admin fill:#FFF8E1,stroke:#F57F17,stroke-width:2px,color:#E65100
