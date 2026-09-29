@@ -1,0 +1,85 @@
+flowchart TB
+    %% STYLING DEFINITIONS
+    classDef client fill:#EBF3FB,stroke:#072A52,stroke-width:2px,color:#072A52;
+    classDef shadow fill:#FEF3EB,stroke:#EF6019,stroke-width:2px,stroke-dasharray: 4 4,color:#8A2E00;
+    classDef transport fill:#F3F4F6,stroke:#4B5563,stroke-width:1.5px,color:#1F2937;
+    classDef backend fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20;
+    classDef db fill:#EDE7F6,stroke:#5E35B1,stroke-width:2px,color:#311B92;
+    classDef admin fill:#FFF8E1,stroke:#F57F17,stroke-width:2px,color:#E65100;
+
+    %% 1. CLIENT TIER
+    subgraph TIER1 ["1. Client Tier: Host Web Application"]
+        HOST["Host Website DOM\n(React / Vue / HTML / Tailwind)"]
+        
+        subgraph SHADOW ["Shadow DOM Encapsulation Boundary (#shadow-root)"]
+            WIDGET["sitepulse.js Client Engine (<40KB)"]
+            CHAT_UI["Live Chat Drawer\n& Typing Stream"]
+            FEED_UI["5-Star Feedback\nCollector"]
+            BUG_UI["Bug Diagnostics\n(OS, Browser, Res, URL)"]
+            ANALYTICS_UI["Cookie-less Privacy\nBeacon"]
+            SESS["Session Storage\n(Tab-Scoped Identity)"]
+        end
+    end
+
+    %% 2. TRANSPORT TIER
+    subgraph TIER2 ["2. Dual-Channel Transport Layer"]
+        WS["WebSocket (Socket.IO Gateway)\nDuplex sub-15ms Latency\n[chat, typing, presence, room events]"]
+        REST["HTTP / REST Endpoints (Express.js)\n[widget/config, feedback, bug-report, analytics]"]
+    end
+
+    %% 3. BACKEND TIER
+    subgraph TIER3 ["3. Application Backend (Node.js & Express 4.x)"]
+        AUTH["Auth & Session Controller\n(SERVER_INSTANCE_ID Invalidation)"]
+        SOCKET_MGR["Socket.IO Room Manager\n(Multi-Tenant Site Isolation)"]
+        DATA_PIPELINE["Data Ingestion Controllers\n(Sanitization & Event Tracking)"]
+        PRISMA["Prisma ORM 5.x Data Client"]
+    end
+
+    %% 4. STORAGE TIER
+    subgraph TIER4 ["4. Persistence Tier (PostgreSQL Database)"]
+        DB[(Relational Storage\n- Users & Sites\n- Conversations & Messages\n- Feedback & Bug Reports\n- Daily Analytics Events)]
+    end
+
+    %% 5. ADMIN TIER
+    subgraph TIER5 ["5. Admin Management Tier (React 18 + Vite + Tailwind)"]
+        DASH_UI["Admin Dashboard SPA"]
+        INBOX["Real-Time Multi-Site Support Inbox"]
+        CUSTOMIZER["Live Widget Theme Customizer"]
+        DIAG_VIEW["Bug Reports & Diagnostic Triage"]
+        METRICS["Privacy-First Analytics Graphs"]
+    end
+
+    %% CONNECTIONS & FLOWS
+    HOST -->|Injects 1-Line Script| WIDGET
+    WIDGET --- CHAT_UI & FEED_UI & BUG_UI & ANALYTICS_UI
+    CHAT_UI -.-> SESS
+
+    %% Client to Transport
+    CHAT_UI <==>|Bi-directional Events| WS
+    FEED_UI -->|POST JSON Payload| REST
+    BUG_UI -->|POST Viewport + OS + Errors| REST
+    ANALYTICS_UI -->|POST Daily Hash Beacon| REST
+
+    %% Transport to Backend
+    WS <==> SOCKET_MGR
+    REST --> DATA_PIPELINE
+    REST --> AUTH
+
+    %% Backend to DB
+    SOCKET_MGR <--> PRISMA
+    DATA_PIPELINE --> PRISMA
+    AUTH --> PRISMA
+    PRISMA <==> DB
+
+    %% Backend to Admin
+    SOCKET_MGR <==>|Real-time Socket Sync| INBOX
+    PRISMA <--> DASH_UI
+    DASH_UI --- INBOX & CUSTOMIZER & DIAG_VIEW & METRICS
+
+    %% APPLY CLASSES
+    class HOST client;
+    class WIDGET,CHAT_UI,FEED_UI,BUG_UI,ANALYTICS_UI,SESS shadow;
+    class WS,REST transport;
+    class AUTH,SOCKET_MGR,DATA_PIPELINE,PRISMA backend;
+    class DB db;
+    class DASH_UI,INBOX,CUSTOMIZER,DIAG_VIEW,METRICS admin;
