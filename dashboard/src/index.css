@@ -6,3 +6,83 @@ body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
+
+/* ==========================================
+   Login Animated Cube Background
+   ========================================== */
+@keyframes cube {
+  from {
+    transform: scale(0) rotate(0deg) translate(-50%, -50%);
+    opacity: 1;
+  }
+  to {
+    transform: scale(20) rotate(960deg) translate(-50%, -50%);
+    opacity: 0;
+  }
+}
+
+.background {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  background: #8fc1c1;
+  overflow: hidden;
+  list-style: none;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.background li {
+  position: absolute;
+  top: 80vh;
+  left: 45vw;
+  width: 10px;
+  height: 10px;
+  border: solid 1px #80adad;
+  color: transparent;
+  transform-origin: top left;
+  transform: scale(0) rotate(0deg) translate(-50%, -50%);
+  animation: cube 21s ease-in forwards infinite;
+}
+
+.background li:nth-child(0),
+.background li:nth-child(1) {
+  animation-delay: 0s;
+  left: 11vw;
+  top: 33vh;
+}
+
+.background li:nth-child(2) {
+  animation-delay: 2s;
+  left: 99vw;
+  top: 42vh;
+  border-color: #9dd4d4;
+}
+
+.background li:nth-child(3) {
+  animation-delay: 4s;
+  left: 26vw;
+  top: 94vh;
+}
+
+.background li:nth-child(4) {
+  animation-delay: 6s;
+  left: 35vw;
+  top: 79vh;
+}
+
+.background li:nth-child(5) {
+  animation-delay: 8s;
+  left: 55vw;
+  top: 15vh;
+}
+
+.background li:nth-child(6) {
+  animation-delay: 10s;
+  left: 68vw;
+  top: 55vh;
+}

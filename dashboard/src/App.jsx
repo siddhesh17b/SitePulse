@@ -680,25 +680,35 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans selection:bg-[#287170]/20 selection:text-[#287170]">
+      <div className="min-h-screen relative flex flex-col justify-between font-sans selection:bg-[#287170]/20 selection:text-[#287170] overflow-hidden">
+        {/* Animated Cube Background */}
+        <ul className="background" aria-hidden="true">
+          <li></li>
+          <li></li>
+          <li></li>
+          <li></li>
+          <li></li>
+          <li></li>
+        </ul>
+
         {/* Clean Header */}
-        <header className="w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-xs">
+        <header className="relative z-10 w-full border-b border-white/40 bg-white/70 backdrop-blur-md shadow-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <SitePulseLogo className="w-8 h-8 shadow-xs" />
               <span className="font-bold text-lg text-slate-900 tracking-tight">SitePulse</span>
             </div>
-            <span className="text-xs font-medium text-slate-500">Admin Portal</span>
+            <span className="text-xs font-semibold text-slate-700 bg-white/80 px-2.5 py-1 rounded-full border border-slate-200/80 shadow-2xs">Admin Portal</span>
           </div>
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <main className="relative z-10 flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
           <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-              {authMode === 'signup' ? 'Create an account' : 'Sign in'}
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 drop-shadow-2xs">
+              {authMode === 'signup' ? 'Create an account' : 'Sign in to SitePulse'}
             </h2>
-            <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
+            <p className="mt-2 text-sm text-slate-700 font-medium max-w-sm mx-auto">
               {authMode === 'signup'
                 ? 'Enter your details below to create your admin account'
                 : 'Enter your credentials to access the admin dashboard'}
@@ -706,7 +716,7 @@ export default function App() {
           </div>
 
           <div className="sm:mx-auto sm:w-full sm:max-w-md">
-            <div className="bg-white py-8 px-6 sm:px-10 shadow-lg shadow-slate-200/50 rounded-2xl border border-slate-200/80">
+            <div className="bg-white/95 backdrop-blur-md py-8 px-6 sm:px-10 shadow-2xl shadow-slate-900/10 rounded-2xl border border-white/80">
               {authError && (
                 <div className="mb-5 bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
                   <span className="font-semibold">Error:</span> {authError}
