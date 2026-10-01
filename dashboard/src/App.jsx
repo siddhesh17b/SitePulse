@@ -26,7 +26,9 @@ import {
   X,
   Globe,
   Key,
-  Code2
+  Code2,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -680,88 +682,112 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-[#287170]/20 selection:text-[#287170]">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-          <div className="flex justify-center mb-4">
-            <SitePulseLogo className="w-12 h-12 shadow-sm" />
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            {authMode === 'signup' ? 'Create Admin Account' : 'Sign in to SitePulse'}
-          </h2>
-          <p className="mt-2 text-sm text-slate-500">
-            {authMode === 'signup'
-              ? 'Set up your administrator profile to manage support chat and analytics.'
-              : 'Enter your verified credentials to access your dashboard.'}
-          </p>
-        </div>
+      <div className="min-h-screen bg-slate-50 relative flex flex-col justify-between font-sans selection:bg-[#287170]/20 selection:text-[#287170] overflow-x-hidden">
+        {/* Ambient top light gradient */}
+        <div className="absolute top-0 inset-x-0 h-96 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(40,113,112,0.18),rgba(255,255,255,0))] pointer-events-none" />
+        {/* Subtle decorative dot grid */}
+        <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-200/80">
-            {authError && (
-              <div className="mb-5 bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-                <span className="font-semibold">Error:</span> {authError}
+        {/* Sleek Top Navigation Bar */}
+        <header className="w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <SitePulseLogo className="w-9 h-9 shadow-xs" />
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-lg text-slate-900 tracking-tight">SitePulse</span>
+                <span className="text-[11px] font-semibold bg-[#287170]/10 text-[#287170] px-2 py-0.5 rounded-full border border-[#287170]/20">
+                  Admin Console
+                </span>
               </div>
-            )}
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full font-medium shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>System Operational</span>
+              </div>
+              <span className="text-slate-400 font-medium">v1.0.0</span>
+            </div>
+          </div>
+        </header>
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {authMode === 'signup' && (
+        {/* Main Content Area */}
+        <main className="relative z-10 flex-1 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
+          <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#287170]/10 border border-[#287170]/20 text-[#287170] text-xs font-semibold mb-3 shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Real-Time Support, Feedback & Analytics</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+              {authMode === 'signup' ? 'Create Admin Account' : 'Sign in to SitePulse'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
+              {authMode === 'signup'
+                ? 'Set up your administrator profile to manage multi-site live chats, feedback, and diagnostics.'
+                : 'Enter your verified credentials to access your administrative dashboard.'}
+            </p>
+
+            {/* Feature Badges */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs font-medium text-slate-600">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-xs border border-slate-200/90 rounded-lg shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#287170]" /> Shadow DOM
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-xs border border-slate-200/90 rounded-lg shadow-2xs">
+                <Zap className="w-3.5 h-3.5 text-amber-500" /> sub-15ms Sockets
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-xs border border-slate-200/90 rounded-lg shadow-2xs">
+                <BarChart3 className="w-3.5 h-3.5 text-emerald-600" /> Zero Cookies
+              </span>
+            </div>
+          </div>
+
+          <div className="sm:mx-auto sm:w-full sm:max-w-md">
+            <div className="bg-white/95 backdrop-blur-sm py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/70 rounded-3xl border border-slate-200/80">
+              {authError && (
+                <div className="mb-5 bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+                  <span className="font-semibold">Error:</span> {authError}
+                </div>
+              )}
+
+              <form onSubmit={handleAuthSubmit} className="space-y-4">
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Full Name
+                    </label>
+                    <div className="relative">
+                      <UserIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+                      <input
+                        type="text"
+                        required
+                        value={authForm.name}
+                        onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                        placeholder="e.g. Sarah Connor"
+                        className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Full Name
+                    Email Address
                   </label>
                   <div className="relative">
-                    <UserIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+                    <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
                     <input
-                      type="text"
+                      type="email"
                       required
-                      value={authForm.name}
-                      onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                      placeholder="e.g. Sarah Connor"
+                      value={authForm.email}
+                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                      placeholder="admin@example.com"
                       className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
                     />
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="email"
-                    required
-                    value={authForm.email}
-                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                    placeholder="admin@example.com"
-                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    value={authForm.password}
-                    onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                    placeholder={authMode === 'signup' ? '•••••••• (min. 8 characters)' : '••••••••'}
-                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
-                  />
-                </div>
-              </div>
-
-              {authMode === 'signup' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Retype Password
+                    Password
                   </label>
                   <div className="relative">
                     <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
@@ -769,55 +795,75 @@ export default function App() {
                       type="password"
                       required
                       minLength={8}
-                      value={authForm.confirmPassword}
-                      onChange={(e) => setAuthForm({ ...authForm, confirmPassword: e.target.value })}
-                      placeholder="Retype password to confirm"
-                      className={`w-full bg-slate-50/50 border ${
-                        authForm.confirmPassword && authForm.password !== authForm.confirmPassword
-                          ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
-                          : 'border-slate-200 focus:border-[#287170] focus:ring-[#287170]/15'
-                      } rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 transition`}
+                      value={authForm.password}
+                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                      placeholder={authMode === 'signup' ? '•••••••• (min. 8 characters)' : '••••••••'}
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
                     />
                   </div>
-                  {authForm.confirmPassword && authForm.password !== authForm.confirmPassword && (
-                    <p className="text-xs text-rose-600 mt-1.5 font-medium">Passwords do not match</p>
-                  )}
                 </div>
-              )}
 
-              <button
-                type="submit"
-                className="w-full mt-2 bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-3.5 rounded-xl text-base shadow-sm shadow-[#287170]/25 transition duration-150 active:scale-[0.99] cursor-pointer"
-              >
-                {authMode === 'signup' ? 'Complete Setup' : 'Sign In'}
-              </button>
-            </form>
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Retype Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+                      <input
+                        type="password"
+                        required
+                        minLength={8}
+                        value={authForm.confirmPassword}
+                        onChange={(e) => setAuthForm({ ...authForm, confirmPassword: e.target.value })}
+                        placeholder="Retype password to confirm"
+                        className={`w-full bg-slate-50/50 border ${
+                          authForm.confirmPassword && authForm.password !== authForm.confirmPassword
+                            ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
+                            : 'border-slate-200 focus:border-[#287170] focus:ring-[#287170]/15'
+                        } rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 transition`}
+                      />
+                    </div>
+                    {authForm.confirmPassword && authForm.password !== authForm.confirmPassword && (
+                      <p className="text-xs text-rose-600 mt-1.5 font-medium">Passwords do not match</p>
+                    )}
+                  </div>
+                )}
 
-            <div className="mt-6 pt-5 border-t border-slate-100 text-center text-sm text-slate-500">
-              {authMode === 'signup' ? (
-                <span>
-                  Already have an account?{' '}
-                  <button
-                    onClick={() => { setAuthMode('login'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
-                    className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
-                  >
-                    Sign In
-                  </button>
-                </span>
-              ) : (
-                <span>
-                  Don't have an account?{' '}
-                  <button
-                    onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
-                    className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
-                  >
-                    Create Account
-                  </button>
-                </span>
-              )}
+                <button
+                  type="submit"
+                  className="w-full mt-2 bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-3.5 rounded-xl text-base shadow-sm shadow-[#287170]/25 transition duration-150 active:scale-[0.99] cursor-pointer"
+                >
+                  {authMode === 'signup' ? 'Complete Setup' : 'Sign In'}
+                </button>
+              </form>
+
+              <div className="mt-6 pt-5 border-t border-slate-100 text-center text-sm text-slate-500">
+                {authMode === 'signup' ? (
+                  <span>
+                    Already have an account?{' '}
+                    <button
+                      onClick={() => { setAuthMode('login'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
+                      className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
+                    >
+                      Sign In
+                    </button>
+                  </span>
+                ) : (
+                  <span>
+                    Don't have an account?{' '}
+                    <button
+                      onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
+                      className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
+                    >
+                      Create Account
+                    </button>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
