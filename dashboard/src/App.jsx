@@ -696,7 +696,7 @@ export default function App() {
         <main className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
           <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-              {authMode === 'signup' ? 'Create an account' : 'Sign in to SitePulse'}
+              {authMode === 'signup' ? 'Create an account' : 'Sign in'}
             </h2>
             <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
               {authMode === 'signup'
@@ -875,7 +875,7 @@ export default function App() {
               <SitePulseLogo className="w-9 h-9" />
               <div>
                 <h1 className="font-bold text-lg tracking-tight text-slate-900 leading-none">SitePulse</h1>
-                <span className="text-xs text-slate-400 font-medium">Customer Hub</span>
+                <span className="text-xs text-slate-400 font-medium">Dashboard</span>
               </div>
             </div>
             <button
@@ -983,7 +983,7 @@ export default function App() {
               <span>Feedback & Bugs</span>
             </button>
 
-            {/* 4. Privacy Analytics */}
+            {/* 4. Analytics */}
             <button
               onClick={() => {
                 setActiveNav('analytics');
@@ -996,7 +996,7 @@ export default function App() {
               }`}
             >
               <BarChart3 className="w-5 h-5" />
-              <span>Privacy Analytics</span>
+              <span>Analytics</span>
             </button>
 
             {/* 5. Settings & Danger Zone */}
@@ -1067,7 +1067,7 @@ export default function App() {
               {activeNav === 'chat' && 'Live Support Inbox'}
               {activeNav === 'customizer' && 'Widget Customization & Styling'}
               {activeNav === 'feedback' && 'Customer Feedback & Bug Reports'}
-              {activeNav === 'analytics' && 'Privacy-Preserving Website Analytics'}
+              {activeNav === 'analytics' && 'Website Analytics'}
               {activeNav === 'settings' && 'Website Property Settings'}
             </h2>
           </div>
@@ -1590,12 +1590,12 @@ export default function App() {
                     <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
                       <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Total Pageviews</span>
                       <div className="text-4xl font-extrabold text-slate-900 mt-2">{analytics.totalPageviews}</div>
-                      <p className="text-sm text-slate-500 mt-1.5 font-medium">Recorded without intrusive third-party cookies</p>
+                      <p className="text-sm text-slate-500 mt-1.5 font-medium">Total pageview events recorded</p>
                     </div>
                     <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
                       <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Unique Daily Visitors</span>
                       <div className="text-4xl font-extrabold text-[#287170] mt-2">{analytics.uniqueVisitors}</div>
-                      <p className="text-sm text-slate-500 mt-1.5 font-medium">Calculated via daily salted cryptographic hashes</p>
+                      <p className="text-sm text-slate-500 mt-1.5 font-medium">Daily unique visitor count</p>
                     </div>
                   </div>
 
