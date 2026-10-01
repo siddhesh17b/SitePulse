@@ -26,9 +26,7 @@ import {
   X,
   Globe,
   Key,
-  Code2,
-  ShieldCheck,
-  Zap
+  Code2
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -682,66 +680,33 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 relative flex flex-col justify-between font-sans selection:bg-[#287170]/20 selection:text-[#287170] overflow-x-hidden">
-        {/* Ambient top light gradient */}
-        <div className="absolute top-0 inset-x-0 h-96 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(40,113,112,0.18),rgba(255,255,255,0))] pointer-events-none" />
-        {/* Subtle decorative dot grid */}
-        <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
-
-        {/* Sleek Top Navigation Bar */}
-        <header className="w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-30">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans selection:bg-[#287170]/20 selection:text-[#287170]">
+        {/* Clean Header */}
+        <header className="w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <SitePulseLogo className="w-9 h-9 shadow-xs" />
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-slate-900 tracking-tight">SitePulse</span>
-                <span className="text-[11px] font-semibold bg-[#287170]/10 text-[#287170] px-2 py-0.5 rounded-full border border-[#287170]/20">
-                  Admin Console
-                </span>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <SitePulseLogo className="w-8 h-8 shadow-xs" />
+              <span className="font-bold text-lg text-slate-900 tracking-tight">SitePulse</span>
             </div>
-            <div className="flex items-center gap-4 text-xs">
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full font-medium shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>System Operational</span>
-              </div>
-              <span className="text-slate-400 font-medium">v1.0.0</span>
-            </div>
+            <span className="text-xs font-medium text-slate-500">Admin Portal</span>
           </div>
         </header>
 
         {/* Main Content Area */}
-        <main className="relative z-10 flex-1 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
+        <main className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
           <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#287170]/10 border border-[#287170]/20 text-[#287170] text-xs font-semibold mb-3 shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Real-Time Support, Feedback & Analytics</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-              {authMode === 'signup' ? 'Create Admin Account' : 'Sign in to SitePulse'}
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+              {authMode === 'signup' ? 'Create an account' : 'Sign in to SitePulse'}
             </h2>
             <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
               {authMode === 'signup'
-                ? 'Set up your administrator profile to manage multi-site live chats, feedback, and diagnostics.'
-                : 'Enter your verified credentials to access your administrative dashboard.'}
+                ? 'Enter your details below to create your admin account'
+                : 'Enter your credentials to access the admin dashboard'}
             </p>
-
-            {/* Feature Badges */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs font-medium text-slate-600">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-xs border border-slate-200/90 rounded-lg shadow-2xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#287170]" /> Shadow DOM
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-xs border border-slate-200/90 rounded-lg shadow-2xs">
-                <Zap className="w-3.5 h-3.5 text-amber-500" /> sub-15ms Sockets
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-xs border border-slate-200/90 rounded-lg shadow-2xs">
-                <BarChart3 className="w-3.5 h-3.5 text-emerald-600" /> Zero Cookies
-              </span>
-            </div>
           </div>
 
           <div className="sm:mx-auto sm:w-full sm:max-w-md">
-            <div className="bg-white/95 backdrop-blur-sm py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/70 rounded-3xl border border-slate-200/80">
+            <div className="bg-white py-8 px-6 sm:px-10 shadow-lg shadow-slate-200/50 rounded-2xl border border-slate-200/80">
               {authError && (
                 <div className="mb-5 bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
                   <span className="font-semibold">Error:</span> {authError}
