@@ -236,7 +236,7 @@
         right: -2px;
         background: #ef4444;
         color: #ffffff;
-        font-size: 11px;
+        font-size: 11.5px;
         font-weight: 700;
         min-width: 20px;
         height: 20px;
@@ -400,8 +400,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 11px;
-        color: #64748b;
+        font-size: 12.5px;
+        color: #475569;
         flex-shrink: 0;
       }
 
@@ -416,7 +416,7 @@
         background: none;
         border: none;
         color: #ef4444;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         padding: 2px 6px;
@@ -502,8 +502,8 @@
       }
 
       .sp-msg-meta {
-        font-size: 10px;
-        opacity: 0.75;
+        font-size: 11.5px;
+        opacity: 0.85;
         margin-top: 4px;
         text-align: right;
       }
@@ -512,7 +512,7 @@
       }
 
       .sp-typing {
-        font-size: 11px;
+        font-size: 12px;
         color: #64748b;
         font-style: italic;
         padding: 4px 16px;
@@ -649,9 +649,9 @@
       }
 
       .sp-diagnostic-tag {
-        font-size: 11px;
+        font-size: 12.5px;
         background: #f1f5f9;
-        color: #64748b;
+        color: #475569;
         padding: 8px 10px;
         border-radius: 6px;
         border-left: 3px solid ${contrast.activeTab};
@@ -714,11 +714,11 @@
               <p>Please enter your email so our support team can assist you.</p>
               <form class="sp-gate-form" id="sp-gate-form">
                 <div>
-                  <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Your Name (optional):</label>
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; display: block; margin-bottom: 4px;">Your Name (optional):</label>
                   <input type="text" class="sp-input" id="sp-gate-name" placeholder="e.g. Alex Smith" />
                 </div>
                 <div>
-                  <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Email Address *:</label>
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; display: block; margin-bottom: 4px;">Email Address *:</label>
                   <input type="email" class="sp-input" id="sp-gate-email" placeholder="name@example.com" required />
                 </div>
                 <button type="submit" class="sp-submit-btn" style="margin-top: 6px;">Continue to Chat</button>

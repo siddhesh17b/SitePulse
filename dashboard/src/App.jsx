@@ -726,7 +726,7 @@ export default function App() {
               <form onSubmit={handleAuthSubmit} className="space-y-4">
                 {authMode === 'signup' && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                       Full Name
                     </label>
                     <div className="relative">
@@ -744,7 +744,7 @@ export default function App() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                     Email Address
                   </label>
                   <div className="relative">
@@ -761,7 +761,7 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                     Password
                   </label>
                   <div className="relative">
@@ -780,7 +780,7 @@ export default function App() {
 
                 {authMode === 'signup' && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                       Retype Password
                     </label>
                     <div className="relative">
@@ -885,12 +885,12 @@ export default function App() {
               <SitePulseLogo className="w-9 h-9" />
               <div>
                 <h1 className="font-bold text-lg tracking-tight text-slate-900 leading-none">SitePulse</h1>
-                <span className="text-xs text-slate-400 font-medium">Dashboard</span>
+                <span className="text-xs text-slate-600 font-semibold">Dashboard</span>
               </div>
             </div>
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition"
               aria-label="Close sidebar"
             >
               <X className="w-5 h-5" />
@@ -900,7 +900,7 @@ export default function App() {
           {/* Active Site Selector */}
           <div className="p-4 border-b border-slate-100">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Site</span>
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Active Site</span>
               <button
                 onClick={() => {
                   setShowNewSiteModal(true);
@@ -1030,13 +1030,13 @@ export default function App() {
         {/* Site Key Card & User Footer */}
         <div className="p-4 border-t border-slate-100 space-y-3">
           {activeSite && (
-            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Site Key</div>
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Site Key</div>
               <div className="font-mono text-sm text-[#287170] font-semibold mt-1 truncate select-all">{activeSite.apiKey}</div>
-              <div className="mt-2.5 pt-2 border-t border-slate-200/60">
+              <div className="mt-2.5 pt-2 border-t border-slate-200">
                 <button
                   onClick={copyEmbedCode}
-                  className="w-full text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition cursor-pointer"
+                  className="w-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 transition cursor-pointer"
                 >
                   {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#287170]" />}
                   <span>{copiedSnippet ? 'Copied script!' : 'Copy embed script'}</span>
@@ -1048,12 +1048,12 @@ export default function App() {
           <div className="flex items-center justify-between pt-1">
             <div className="truncate">
               <div className="text-sm font-bold text-slate-900 truncate">{user.name}</div>
-              <div className="text-xs text-slate-500 truncate">{user.email}</div>
+              <div className="text-xs text-slate-600 font-medium truncate">{user.email}</div>
             </div>
             <button
               onClick={handleLogout}
               title="Sign Out"
-              className="text-slate-400 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition cursor-pointer"
+              className="text-slate-500 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition cursor-pointer"
             >
               <LogOut className="w-5 h-5" />
             </button>
@@ -1086,7 +1086,7 @@ export default function App() {
               <span className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-50 text-slate-700 border border-slate-200">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <span>{activeSite.name}</span>
-                <span className="text-slate-400 text-xs font-normal">({activeSite.domain})</span>
+                <span className="text-slate-600 text-xs font-medium">({activeSite.domain})</span>
               </span>
             </div>
           )}
@@ -1100,15 +1100,15 @@ export default function App() {
                 <Layers className="w-7 h-7" />
               </div>
               <h3 className="text-base font-bold text-slate-900">No Website Selected</h3>
-              <p className="text-xs text-slate-500 max-w-sm mt-1 mb-5">
-                You don't have any active websites. Add a website property to get an embed code and start chatting with visitors.
+              <p className="text-sm text-slate-600 max-w-sm mt-1 mb-5">
+                Select a website from the sidebar or add a new website to manage support and analytics.
               </p>
               <button
                 onClick={() => setShowNewSiteModal(true)}
-                className="bg-[#287170] hover:bg-[#205d5c] text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm shadow-[#287170]/25 transition flex items-center gap-1.5 cursor-pointer"
+                className="bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm shadow-[#287170]/25 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Your First Website</span>
+                <span>Add Website</span>
               </button>
             </div>
           ) : (
@@ -1168,7 +1168,7 @@ export default function App() {
 
                     <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
                       {filteredConversations.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 text-sm font-medium">
+                        <div className="p-8 text-center text-slate-600 text-sm font-medium">
                           {searchQuery ? 'No conversations matching search.' : 'No conversations found in this view.'}
                         </div>
                       ) : (
@@ -1195,7 +1195,7 @@ export default function App() {
                                     {conv.visitorName || conv.visitorEmail || `Visitor #${conv.visitorId.slice(-6)}`}
                                   </span>
                                 </div>
-                                <span className="text-xs text-slate-400 font-medium shrink-0">
+                                <span className="text-xs text-slate-600 font-medium shrink-0">
                                   {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </div>
@@ -1253,7 +1253,7 @@ export default function App() {
                               ✓ #{selectedConv.externalId}
                             </span>
                           )}
-                          <span className="text-xs text-slate-400 font-mono hidden xl:inline">
+                          <span className="text-xs text-slate-600 font-mono hidden xl:inline">
                             (Session: {selectedConv.visitorId.slice(0, 8)}...)
                           </span>
                         </div>
@@ -1287,7 +1287,7 @@ export default function App() {
                               >
                                 {m.content}
                               </div>
-                              <span className="text-xs text-slate-400 font-medium mt-1.5 px-1">
+                              <span className="text-xs text-slate-600 font-medium mt-1.5 px-1">
                                 {isAgent ? 'You (Agent)' : (m.senderName || 'Visitor')} •{' '}
                                 {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
@@ -1320,7 +1320,7 @@ export default function App() {
                             }
                           }}
                           placeholder="Type your reply to the visitor..."
-                          className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:border-[#287170] placeholder-slate-400"
+                          className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:border-[#287170] placeholder-slate-500"
                         />
                         <button
                           type="submit"
@@ -1333,8 +1333,8 @@ export default function App() {
                       </form>
                     </div>
                   ) : (
-                    <div className="hidden md:flex flex-1 items-center justify-center text-slate-400 text-base font-medium bg-slate-50">
-                      Select a conversation from the left to start chatting.
+                    <div className="hidden md:flex flex-1 items-center justify-center text-slate-600 text-base font-medium bg-slate-50">
+                      Select a conversation to view messages.
                     </div>
                   )}
                 </div>
@@ -1537,7 +1537,7 @@ export default function App() {
                       <span>Customer Ratings & Reviews</span>
                     </h3>
                     {feedbacks.length === 0 ? (
-                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-base font-medium">
+                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-600 text-base font-medium">
                         No feedback received yet.
                       </div>
                     ) : (
@@ -1550,7 +1550,7 @@ export default function App() {
                               ))}
                             </div>
                             <p className="text-base text-slate-900 mt-2 font-medium leading-relaxed">"{f.comment}"</p>
-                            <div className="text-sm text-slate-400 mt-3 pt-3 border-t border-slate-100 flex justify-between font-medium">
+                            <div className="text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100 flex justify-between font-medium">
                               <span>{f.userEmail || 'Anonymous'}</span>
                               <span>{new Date(f.createdAt).toLocaleDateString()}</span>
                             </div>
@@ -1566,7 +1566,7 @@ export default function App() {
                       <span>Reported Issues</span>
                     </h3>
                     {bugs.length === 0 ? (
-                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-base font-medium">
+                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-600 text-base font-medium">
                         No bugs reported yet.
                       </div>
                     ) : (
@@ -1598,14 +1598,14 @@ export default function App() {
                 <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 bg-slate-50">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
-                      <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Total Pageviews</span>
+                      <span className="text-sm font-bold text-slate-700 uppercase tracking-wider">Total Pageviews</span>
                       <div className="text-4xl font-extrabold text-slate-900 mt-2">{analytics.totalPageviews}</div>
-                      <p className="text-sm text-slate-500 mt-1.5 font-medium">Total pageview events recorded</p>
+                      <p className="text-sm text-slate-600 mt-1.5 font-medium">Total pageview events recorded</p>
                     </div>
                     <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
-                      <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Unique Daily Visitors</span>
+                      <span className="text-sm font-bold text-slate-700 uppercase tracking-wider">Unique Daily Visitors</span>
                       <div className="text-4xl font-extrabold text-[#287170] mt-2">{analytics.uniqueVisitors}</div>
-                      <p className="text-sm text-slate-500 mt-1.5 font-medium">Daily unique visitor count</p>
+                      <p className="text-sm text-slate-600 mt-1.5 font-medium">Daily unique visitor count</p>
                     </div>
                   </div>
 
@@ -1621,8 +1621,8 @@ export default function App() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-base text-slate-400 text-center py-8 font-medium">
-                        No analytics events captured yet. Visits on your connected website will appear here in real time.
+                      <div className="text-base text-slate-600 text-center py-8 font-medium">
+                        No analytics events recorded yet.
                       </div>
                     )}
                   </div>
@@ -1640,13 +1640,13 @@ export default function App() {
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-slate-900">Website Property</h3>
-                        <p className="text-xs text-slate-500">Active domain identifiers and configuration</p>
+                        <p className="text-sm text-slate-600 font-medium">Active domain identifiers and configuration</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                           Property Name
                         </label>
                         <div className="text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl">
@@ -1654,7 +1654,7 @@ export default function App() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                           Registered Domain
                         </label>
                         <div className="text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl">
@@ -1672,7 +1672,7 @@ export default function App() {
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-slate-900">Site Key (Public API Key)</h3>
-                        <p className="text-xs text-slate-500">Embedded in your client-side website code to authenticate the widget</p>
+                        <p className="text-sm text-slate-600 font-medium">Embedded in your client-side website code to authenticate the widget</p>
                       </div>
                     </div>
 
@@ -1685,7 +1685,7 @@ export default function App() {
                       />
                       <button
                         onClick={copyEmbedCode}
-                        className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer"
                       >
                         {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#287170]" />}
                         <span>{copiedSnippet ? 'Copied' : 'Copy'}</span>
@@ -1701,17 +1701,17 @@ export default function App() {
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-slate-900">HTML Embed Script</h3>
-                        <p className="text-xs text-slate-500">Insert this single line right before the closing &lt;/body&gt; tag on your website</p>
+                        <p className="text-sm text-slate-600 font-medium">Insert this single line right before the closing &lt;/body&gt; tag on your website</p>
                       </div>
                     </div>
 
                     <div className="relative">
-                      <pre className="p-4 bg-slate-50 border border-slate-200 text-slate-800 rounded-xl font-mono text-xs overflow-x-auto leading-relaxed select-all">
+                      <pre className="p-4 bg-slate-50 border border-slate-200 text-slate-800 rounded-xl font-mono text-sm overflow-x-auto leading-relaxed select-all">
                         {`<script src="${BACKEND_URL}/sitepulse.js" data-site-key="${activeSite.apiKey}" defer></script>`}
                       </pre>
                       <button
                         onClick={copyEmbedCode}
-                        className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition flex items-center gap-1.5 border border-slate-200 shadow-xs cursor-pointer"
+                        className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-slate-200 shadow-xs cursor-pointer"
                       >
                         {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#287170]" />}
                         <span>{copiedSnippet ? 'Copied' : 'Copy Code'}</span>
@@ -1727,7 +1727,7 @@ export default function App() {
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-rose-900">Danger Zone</h3>
-                        <p className="text-xs text-rose-600">Irreversible destructive actions for this website property</p>
+                        <p className="text-sm text-rose-600">Irreversible destructive actions for this website property</p>
                       </div>
                     </div>
 
@@ -1738,16 +1738,16 @@ export default function App() {
                           <MessageSquareX className="w-4 h-4 text-rose-600" />
                           <span>Delete All Chats</span>
                         </h4>
-                        <p className="text-xs text-slate-600 leading-relaxed max-w-xl">
+                        <p className="text-sm text-slate-600 leading-relaxed max-w-xl">
                           Permanently delete all active and resolved visitor conversations, messages, and chat sessions for <strong className="text-slate-900">{activeSite.name}</strong>. Feedback ratings, bug reports, and analytics will remain intact.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => promptDeleteChats(activeSite)}
-                        className="self-start sm:self-center px-4 py-2 bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 hover:text-rose-800 font-semibold rounded-xl text-xs transition flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                        className="self-start sm:self-center px-4 py-2.5 bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 hover:text-rose-800 font-semibold rounded-xl text-sm transition flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
                       >
-                        <MessageSquareX className="w-3.5 h-3.5 text-rose-600" />
+                        <MessageSquareX className="w-4 h-4 text-rose-600" />
                         <span>Delete All Chats</span>
                       </button>
                     </div>
@@ -1759,16 +1759,16 @@ export default function App() {
                           <Trash2 className="w-4 h-4 text-rose-600" />
                           <span>Delete Entire Website Property</span>
                         </h4>
-                        <p className="text-xs text-slate-600 leading-relaxed max-w-xl">
+                        <p className="text-sm text-slate-600 leading-relaxed max-w-xl">
                           Permanently delete <strong className="text-slate-900">{activeSite.name}</strong> ({activeSite.domain}) and all associated conversations, feedback, bugs, and analytics.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => promptDeleteSite(activeSite)}
-                        className="self-start sm:self-center px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
+                        className="self-start sm:self-center px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                         <span>Delete Website</span>
                       </button>
                     </div>
@@ -1785,7 +1785,7 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-7">
             <h3 className="text-xl font-bold text-slate-900">Add New Website</h3>
-            <p className="text-sm text-slate-500 mt-1">Generate a new Site Key and separate widget for another domain.</p>
+            <p className="text-sm text-slate-600 mt-1 font-medium">Register a domain to generate an embed key.</p>
 
             <form onSubmit={handleCreateSite} className="mt-6 space-y-4">
               <div>
@@ -1844,14 +1844,14 @@ export default function App() {
             </p>
 
             {deleteSiteModal.error && (
-              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-700">
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
                 {deleteSiteModal.error}
               </div>
             )}
 
             <form onSubmit={handleConfirmDeleteSite} className="mt-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                   Confirm Admin Password
                 </label>
                 <div className="relative">
@@ -1902,14 +1902,14 @@ export default function App() {
             </p>
 
             {deleteChatsModal.error && (
-              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-700">
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
                 {deleteChatsModal.error}
               </div>
             )}
 
             <form onSubmit={handleConfirmDeleteChats} className="mt-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
                   Confirm Admin Password
                 </label>
                 <div className="relative">
