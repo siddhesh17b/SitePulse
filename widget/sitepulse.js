@@ -133,6 +133,15 @@
   let unreadCount = 0;
   let shadowRoot = null;
 
+  function isEmailGateRequired() {
+    if (!widgetSettings.requireEmail) return false;
+    if (visitorEmail || externalId) return false;
+    try {
+      if (sessionStorage.getItem('sitepulse_chat_active') === 'true') return false;
+    } catch (e) {}
+    return true;
+  }
+
   function initWidget() {
     if (widgetSettings.enableChat) activeTab = 'chat';
     else if (widgetSettings.enableFeedback) activeTab = 'feedback';
@@ -147,14 +156,11 @@
     injectStyles();
 
     if (widgetSettings.enableChat) {
-      loadSocketIO(() => {
-        // Only auto-connect if user is already identified or has an active chat session in this tab
-        let isChatActive = false;
-        try { isChatActive = sessionStorage.getItem('sitepulse_chat_active') === 'true'; } catch (e) {}
-        if (visitorEmail || externalId || isChatActive) {
-          setupRealtimeChat();
-        }
-      });
+      if (!isEmailGateRequired()) {
+        setupRealtimeChat();
+      } else {
+        loadSocketIO(); // Preload socket client in background
+      }
     }
   }
 
@@ -701,13 +707,13 @@
         <!-- 1. Chat Tab Panel -->
         <div class="sp-tab-panel active" id="sp-panel-chat">
           <!-- Active Session Banner & Reset Option -->
-          <div class="sp-chat-top-banner" id="sp-chat-banner" style="display: ${(visitorEmail || externalId || (sessionStorage.getItem('sitepulse_chat_active') === 'true')) ? 'flex' : 'none'};">
+          <div class="sp-chat-top-banner" id="sp-chat-banner" style="display: ${!isEmailGateRequired() ? 'flex' : 'none'};">
             <span class="sp-visitor-tag" id="sp-visitor-tag">Chatting as: <strong>${escapeHTML(visitorName ? (visitorEmail ? `${visitorName} (${visitorEmail})` : visitorName) : (visitorEmail || externalId || 'Visitor'))}</strong></span>
             <button type="button" class="sp-end-chat-link" id="sp-end-chat-btn">End Conversation / Not you?</button>
           </div>
 
-          <!-- Email Gate (bypassed only if actively identified in this session) -->
-          <div class="sp-email-gate" id="sp-email-gate" style="display: ${(visitorEmail || externalId || (sessionStorage.getItem('sitepulse_chat_active') === 'true')) ? 'none' : 'flex'};">
+          <!-- Email Gate (bypassed if requireEmail is false or already identified) -->
+          <div class="sp-email-gate" id="sp-email-gate" style="display: ${isEmailGateRequired() ? 'flex' : 'none'};">
             <div class="sp-gate-card">
               <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
               <h4>Start a Conversation</h4>
@@ -952,17 +958,25 @@
         `;
       }
 
-      // 5. Hide banner and display Email Gate
+      // 5. Update banner and Email Gate based on settings
       const banner = shadowRoot.getElementById('sp-chat-banner');
-      if (banner) banner.style.display = 'none';
+      if (banner) {
+        const visitorTag = shadowRoot.getElementById('sp-visitor-tag');
+        if (visitorTag) visitorTag.innerHTML = `Chatting as: <strong>Visitor</strong>`;
+        banner.style.display = !isEmailGateRequired() ? 'flex' : 'none';
+      }
 
       const gate = shadowRoot.getElementById('sp-email-gate');
       if (gate) {
-        gate.style.display = 'flex';
+        gate.style.display = isEmailGateRequired() ? 'flex' : 'none';
         const emailInput = shadowRoot.getElementById('sp-gate-email');
         const nameInput = shadowRoot.getElementById('sp-gate-name');
         if (emailInput) emailInput.value = '';
         if (nameInput) nameInput.value = '';
+      }
+
+      if (!isEmailGateRequired()) {
+        setupRealtimeChat();
       }
 
       // 6. Reset email inputs in other tabs
@@ -982,6 +996,9 @@
       unreadCount = 0;
       updateBadge();
       if (activeTab === 'chat') {
+        if (!isEmailGateRequired() && (!socket || !conversation)) {
+          setupRealtimeChat();
+        }
         const chatArea = shadowRoot.getElementById('sp-chat-messages');
         const input = shadowRoot.getElementById('sp-chat-input');
         requestAnimationFrame(() => {
@@ -1003,6 +1020,9 @@
       p.classList.toggle('active', p.id === `sp-panel-${tab}`);
     });
     if (tab === 'chat') {
+      if (!isEmailGateRequired() && (!socket || !conversation)) {
+        setupRealtimeChat();
+      }
       const chatArea = shadowRoot.getElementById('sp-chat-messages');
       const input = shadowRoot.getElementById('sp-chat-input');
       requestAnimationFrame(() => {
@@ -1034,15 +1054,60 @@
     });
   }
 
+  function escapeAttr(str) {
+    if (!str) return '';
+    return String(str).replace(/"/g, '&quot;');
+  }
+
   function loadSocketIO(callback) {
     if (window.io) {
-      callback();
+      if (callback) callback();
       return;
     }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
-    script.onload = callback;
-    document.head.appendChild(script);
+    // 1. Try local backend socket.io.js first (immediate, reliable, offline-safe)
+    const localScript = document.createElement('script');
+    localScript.src = `${backendUrl}/socket.io/socket.io.js`;
+    localScript.onload = () => {
+      if (window.io && callback) callback();
+      else fallbackCDN();
+    };
+    localScript.onerror = () => {
+      fallbackCDN();
+    };
+
+    function fallbackCDN() {
+      if (window.io) {
+        if (callback) callback();
+        return;
+      }
+      const cdnScript = document.createElement('script');
+      cdnScript.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      cdnScript.onload = () => {
+        if (window.io && callback) callback();
+      };
+      cdnScript.onerror = (err) => {
+        console.error('[SitePulse] Failed to load Socket.IO from both backend and CDN:', err);
+      };
+      document.head.appendChild(cdnScript);
+    }
+
+    document.head.appendChild(localScript);
+  }
+
+  let pendingMessages = [];
+
+  function flushPendingMessages() {
+    if (!socket || !socket.connected || !conversation || !conversation.id) return;
+    while (pendingMessages.length > 0) {
+      const msgContent = pendingMessages.shift();
+      socket.emit('send_message', {
+        conversationId: conversation.id,
+        siteKey: siteKey,
+        senderType: 'visitor',
+        senderName: visitorName || visitorEmail || 'Visitor',
+        content: msgContent
+      });
+    }
   }
 
   function applyConversation(conv) {
@@ -1051,13 +1116,13 @@
     const chatArea = shadowRoot.getElementById('sp-chat-messages');
     if (!chatArea) return;
 
+    // Collect any optimistic pending messages
+    const pendingBubbles = Array.from(chatArea.querySelectorAll('.sp-msg.visitor[data-pending="true"]'));
+
     chatArea.innerHTML = '';
     if (conv.messages && conv.messages.length > 0) {
       conv.messages.forEach((msg) => {
         appendMessage(msg.content, msg.senderType, msg.senderName, false);
-      });
-      requestAnimationFrame(() => {
-        chatArea.scrollTop = chatArea.scrollHeight;
       });
     } else {
       chatArea.innerHTML = `
@@ -1067,6 +1132,19 @@
         </div>
       `;
     }
+
+    // Re-attach pending bubbles if not already present
+    pendingBubbles.forEach((bubble) => {
+      const text = bubble.getAttribute('data-content');
+      const alreadyIncluded = conv.messages && conv.messages.some(m => m.content === text);
+      if (!alreadyIncluded) {
+        chatArea.appendChild(bubble);
+      }
+    });
+
+    requestAnimationFrame(() => {
+      chatArea.scrollTop = chatArea.scrollHeight;
+    });
   }
 
   function handleIdentify(userData) {
@@ -1106,114 +1184,168 @@
       if (bugEmail && visitorEmail) bugEmail.value = visitorEmail;
     }
 
-    loadSocketIO(() => {
-      setupRealtimeChat();
-    });
+    setupRealtimeChat();
   }
 
   let isConnectingChat = false;
-  function setupRealtimeChat() {
-    if (isConnectingChat) return;
-    isConnectingChat = true;
+  function setupRealtimeChat(onReady) {
+    if (conversation && conversation.id && socket && socket.connected) {
+      if (onReady) onReady();
+      return;
+    }
 
-    fetch(`${backendUrl}/api/v1/conversations/init`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        siteKey,
-        visitorId,
-        visitorEmail: visitorEmail || null,
-        visitorName: visitorName || null,
-        externalId: externalId || null
-      })
-    })
-      .then((res) => res.json())
-      .then((conv) => {
-        isConnectingChat = false;
-        applyConversation(conv);
+    loadSocketIO(() => {
+      if (!window.io) return;
 
-        // Connect Socket.IO
-        if (!socket) {
-          socket = window.io(backendUrl);
+      // Connect Socket.IO if not already instantiated
+      if (!socket) {
+        socket = window.io(backendUrl, {
+          transports: ['websocket', 'polling']
+        });
 
-          socket.on('connect', () => {
-            if (conversation && conversation.id) {
-              socket.emit('join_conversation', { conversationId: conversation.id });
-            }
-          });
+        socket.on('connect', () => {
+          if (conversation && conversation.id) {
+            socket.emit('join_conversation', { conversationId: conversation.id });
+            flushPendingMessages();
+          }
+        });
 
-          // Listen for new messages
-          socket.on('message_received', (msg) => {
-            if (conversation && msg.conversationId === conversation.id) {
-              appendMessage(msg.content, msg.senderType, msg.senderName, true);
-              if (!isOpen && msg.senderType === 'agent') {
-                unreadCount++;
-                updateBadge();
+        socket.on('message_received', (msg) => {
+          if (conversation && msg.conversationId === conversation.id) {
+            if (msg.senderType === 'visitor') {
+              const pendingEl = shadowRoot.querySelector(`.sp-msg.visitor[data-pending="true"][data-content="${escapeAttr(msg.content)}"]`);
+              if (pendingEl) {
+                pendingEl.removeAttribute('data-pending');
+                return;
               }
             }
-          });
-
-          // Listen for typing
-          socket.on('typing', ({ senderType, isTyping }) => {
-            if (senderType === 'agent') {
-              const typingEl = shadowRoot.getElementById('sp-typing');
-              if (typingEl) typingEl.style.display = isTyping ? 'block' : 'none';
+            appendMessage(msg.content, msg.senderType, msg.senderName, true);
+            if (!isOpen && msg.senderType === 'agent') {
+              unreadCount++;
+              updateBadge();
             }
-          });
+          }
+        });
 
-          // Listen for live widget settings update
-          socket.on('widget_settings_updated', (newSettings) => {
-            widgetSettings = { ...widgetSettings, ...newSettings };
-            const titleEl = shadowRoot.getElementById('sp-title');
-            const subtitleEl = shadowRoot.getElementById('sp-subtitle');
-            if (titleEl) titleEl.textContent = widgetSettings.title;
-            if (subtitleEl) subtitleEl.textContent = widgetSettings.subtitle;
-          });
+        socket.on('typing', ({ senderType, isTyping }) => {
+          if (senderType === 'agent') {
+            const typingEl = shadowRoot.getElementById('sp-typing');
+            if (typingEl) typingEl.style.display = isTyping ? 'block' : 'none';
+          }
+        });
 
-          // Listen for chats wiped by admin
-          socket.on('all_conversations_deleted', () => {
-            handleResetSession(false);
-          });
-        } else if (socket.connected && conv && conv.id) {
-          socket.emit('join_conversation', { conversationId: conv.id });
+        socket.on('widget_settings_updated', (newSettings) => {
+          widgetSettings = { ...widgetSettings, ...newSettings };
+          const titleEl = shadowRoot.getElementById('sp-title');
+          const subtitleEl = shadowRoot.getElementById('sp-subtitle');
+          if (titleEl) titleEl.textContent = widgetSettings.title;
+          if (subtitleEl) subtitleEl.textContent = widgetSettings.subtitle;
+        });
+
+        socket.on('all_conversations_deleted', () => {
+          handleResetSession(false);
+        });
+      }
+
+      // If conversation already established, join room and flush
+      if (conversation && conversation.id) {
+        if (socket.connected) {
+          socket.emit('join_conversation', { conversationId: conversation.id });
+          flushPendingMessages();
         }
+        if (onReady) onReady();
+        return;
+      }
+
+      if (isConnectingChat) return;
+      isConnectingChat = true;
+
+      fetch(`${backendUrl}/api/v1/conversations/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteKey,
+          visitorId,
+          visitorEmail: visitorEmail || null,
+          visitorName: visitorName || null,
+          externalId: externalId || null
+        })
       })
-      .catch((err) => {
-        isConnectingChat = false;
-        console.error('[SitePulse] Chat init failed:', err);
-      });
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Init conversation failed with status ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((conv) => {
+          isConnectingChat = false;
+          if (!conv || !conv.id) {
+            throw new Error((conv && conv.error) || 'Invalid conversation object');
+          }
+          applyConversation(conv);
+
+          if (socket && socket.connected) {
+            socket.emit('join_conversation', { conversationId: conv.id });
+            flushPendingMessages();
+          }
+          if (onReady) onReady();
+        })
+        .catch((err) => {
+          isConnectingChat = false;
+          console.error('[SitePulse] Chat init error:', err);
+        });
+    });
   }
 
   function handleSendMessage() {
     const input = shadowRoot.getElementById('sp-chat-input');
+    if (!input) return;
     const content = input.value.trim();
-    if (!content || !conversation || !socket) return;
+    if (!content) return;
 
-    socket.emit('send_message', {
-      conversationId: conversation.id,
-      siteKey: siteKey,
-      senderType: 'visitor',
-      senderName: visitorName || visitorEmail || 'Visitor',
-      content: content
-    });
+    if (isEmailGateRequired()) {
+      const gate = shadowRoot.getElementById('sp-email-gate');
+      if (gate) {
+        gate.style.display = 'flex';
+        const emailInput = shadowRoot.getElementById('sp-gate-email');
+        if (emailInput) emailInput.focus();
+        return;
+      }
+    }
 
     input.value = '';
     input.focus();
-    const chatArea = shadowRoot.getElementById('sp-chat-messages');
-    if (chatArea) {
-      requestAnimationFrame(() => {
-        chatArea.scrollTop = chatArea.scrollHeight;
+
+    // Optimistically render message bubble immediately
+    appendMessage(content, 'visitor', visitorName || 'You', true, true);
+
+    if (socket && socket.connected && conversation && conversation.id) {
+      socket.emit('send_message', {
+        conversationId: conversation.id,
+        siteKey: siteKey,
+        senderType: 'visitor',
+        senderName: visitorName || visitorEmail || 'Visitor',
+        content: content
       });
+    } else {
+      pendingMessages.push(content);
+      setupRealtimeChat();
     }
   }
 
-  function appendMessage(text, senderType, senderName, scroll = true) {
+  function appendMessage(text, senderType, senderName, scroll = true, isPending = false) {
     const chatArea = shadowRoot.getElementById('sp-chat-messages');
+    if (!chatArea) return;
     const msgDiv = document.createElement('div');
     msgDiv.className = `sp-msg ${senderType}`;
+    if (isPending) {
+      msgDiv.setAttribute('data-pending', 'true');
+      msgDiv.setAttribute('data-content', escapeAttr(text));
+    }
+    const metaLabel = senderType === 'agent' ? (senderName || 'Agent') : 'You';
     msgDiv.innerHTML = `
       ${escapeHTML(text)}
-      <div class="sp-msg-meta">${senderType === 'agent' ? (senderName || 'Agent') : 'You'}</div>
+      <div class="sp-msg-meta">${escapeHTML(metaLabel)}</div>
     `;
     chatArea.appendChild(msgDiv);
     if (scroll) {

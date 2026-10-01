@@ -15,10 +15,10 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const server = http.createServer(app);
 
-// Rate Limiter: Max 5 new conversations per minute per IP
+// Rate Limiter: Max 60 new conversations per minute per IP
 const conversationInitLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5, // Limit each IP to 5 requests per minute
+  max: 60, // Limit each IP to 60 requests per minute
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -82,6 +82,9 @@ io.on('connection', (socket) => {
     try {
       const { conversationId, siteKey, senderType, content, senderName } = data;
       if (!conversationId || !content) return;
+
+      // Ensure socket is joined to the conversation room
+      socket.join(`conv_${conversationId}`);
 
       let savedMessage = null;
       if (prisma) {
