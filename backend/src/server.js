@@ -15,10 +15,10 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const server = http.createServer(app);
 
-// Rate Limiter: Max 60 new conversations per minute per IP
+// Rate Limiter: Max 120 new conversations per minute per IP
 const conversationInitLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 60, // Limit each IP to 60 requests per minute
+  max: 120, // Limit each IP to 120 requests per minute
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -81,7 +81,9 @@ io.on('connection', (socket) => {
   socket.on('send_message', async (data) => {
     try {
       const { conversationId, siteKey, senderType, content, senderName } = data;
-      if (!conversationId || !content) return;
+      if (!conversationId || !content || typeof content !== 'string') return;
+      const trimmed = content.trim();
+      if (trimmed.length === 0 || trimmed.length > 5000) return;
 
       // Ensure socket is joined to the conversation room
       socket.join(`conv_${conversationId}`);
@@ -93,14 +95,17 @@ io.on('connection', (socket) => {
             conversationId,
             senderType: senderType || 'visitor',
             senderName: senderName || (senderType === 'agent' ? 'Support Agent' : 'Visitor'),
-            content: content.trim()
+            content: trimmed
           }
         });
 
-        // Update conversation lastMessageAt
+        // Update conversation lastMessageAt and reopen status if visitor sends message
         await prisma.conversation.update({
           where: { id: conversationId },
-          data: { lastMessageAt: new Date() }
+          data: {
+            lastMessageAt: new Date(),
+            status: senderType === 'visitor' ? 'open' : undefined
+          }
         });
       } else {
         savedMessage = {
@@ -172,7 +177,7 @@ app.post('/api/v1/sites', authMiddleware, async (req, res) => {
       enableChat: true,
       enableFeedback: true,
       enableBugReport: true,
-      requireEmail: false
+      requireEmail: true
     };
 
     const site = await prisma.site.create({
@@ -406,6 +411,15 @@ app.post('/api/v1/conversations/init', conversationInitLimiter, async (req, res)
     const { siteKey, visitorId, visitorName, visitorEmail, externalId } = req.body;
     if (!siteKey || !visitorId) {
       return res.status(400).json({ error: 'siteKey and visitorId are required' });
+    }
+
+    if (!visitorEmail && !externalId) {
+      return res.status(400).json({ error: 'A valid email address is required to start a conversation' });
+    }
+
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (visitorEmail && !EMAIL_REGEX.test(String(visitorEmail).trim().toLowerCase())) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
     }
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });

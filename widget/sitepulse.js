@@ -133,12 +133,13 @@
   let unreadCount = 0;
   let shadowRoot = null;
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   function isEmailGateRequired() {
-    if (!widgetSettings.requireEmail) return false;
-    if (visitorEmail || externalId) return false;
-    try {
-      if (sessionStorage.getItem('sitepulse_chat_active') === 'true') return false;
-    } catch (e) {}
+    // Email is always required before chatting
+    if (visitorEmail && EMAIL_REGEX.test(visitorEmail.trim().toLowerCase())) {
+      return false;
+    }
     return true;
   }
 
@@ -712,12 +713,13 @@
             <button type="button" class="sp-end-chat-link" id="sp-end-chat-btn">End Conversation / Not you?</button>
           </div>
 
-          <!-- Email Gate (bypassed if requireEmail is false or already identified) -->
+          <!-- Email Gate (Always required before chatting) -->
           <div class="sp-email-gate" id="sp-email-gate" style="display: ${isEmailGateRequired() ? 'flex' : 'none'};">
             <div class="sp-gate-card">
               <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
               <h4>Start a Conversation</h4>
-              <p>Please enter your email so our support team can assist you.</p>
+              <p>Please enter your email to chat with our support team.</p>
+              <div id="sp-gate-error" style="display: none; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 7px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; font-weight: 500;"></div>
               <form class="sp-gate-form" id="sp-gate-form">
                 <div>
                   <label style="font-size: 12.5px; font-weight: 600; color: #334155; display: block; margin-bottom: 4px;">Your Name (optional):</label>
@@ -727,8 +729,7 @@
                   <label style="font-size: 12.5px; font-weight: 600; color: #334155; display: block; margin-bottom: 4px;">Email Address *:</label>
                   <input type="email" class="sp-input" id="sp-gate-email" placeholder="name@example.com" required />
                 </div>
-                <button type="submit" class="sp-submit-btn" style="margin-top: 6px;">Continue to Chat</button>
-                <button type="button" class="sp-guest-btn" id="sp-gate-guest-btn">Or chat as Guest</button>
+                <button type="submit" class="sp-submit-btn" style="margin-top: 6px;">Start Conversation</button>
               </form>
             </div>
           </div>
@@ -831,26 +832,40 @@
     });
 
     // Email Gate submission
+    // Email Gate submission (strict email required)
     const gateForm = shadowRoot.getElementById('sp-gate-form');
     if (gateForm) {
       gateForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const emailInput = shadowRoot.getElementById('sp-gate-email');
         const nameInput = shadowRoot.getElementById('sp-gate-name');
-        const emailVal = emailInput.value.trim();
-        const nameVal = nameInput.value.trim();
-        if (!emailVal) return;
+        const errorEl = shadowRoot.getElementById('sp-gate-error');
+        const emailVal = emailInput ? emailInput.value.trim().toLowerCase() : '';
+        const nameVal = nameInput ? nameInput.value.trim() : '';
+
+        if (!emailVal || !EMAIL_REGEX.test(emailVal)) {
+          if (errorEl) {
+            errorEl.textContent = 'Please enter a valid email address.';
+            errorEl.style.display = 'block';
+          }
+          if (emailInput) emailInput.focus();
+          return;
+        }
+
+        if (errorEl) errorEl.style.display = 'none';
 
         visitorEmail = emailVal;
-        visitorName = nameVal;
+        visitorName = nameVal || emailVal.split('@')[0];
         try {
           sessionStorage.setItem('sitepulse_visitor_email', visitorEmail);
-          if (visitorName) sessionStorage.setItem('sitepulse_visitor_name', visitorName);
+          sessionStorage.setItem('sitepulse_visitor_name', visitorName);
           sessionStorage.setItem('sitepulse_chat_active', 'true');
         } catch (err) {}
 
         // Hide gate and show banner
-        shadowRoot.getElementById('sp-email-gate').style.display = 'none';
+        const gate = shadowRoot.getElementById('sp-email-gate');
+        if (gate) gate.style.display = 'none';
+
         const banner = shadowRoot.getElementById('sp-chat-banner');
         const visitorTag = shadowRoot.getElementById('sp-visitor-tag');
         if (banner && visitorTag) {
@@ -859,37 +874,12 @@
           banner.style.display = 'flex';
         }
 
-        // Initialize real-time chat with the provided credentials
-        loadSocketIO(() => {
-          setupRealtimeChat();
-        });
-      });
-    }
+        // Initialize real-time chat with the validated credentials
+        setupRealtimeChat();
 
-    // Guest Chat button
-    const guestBtn = shadowRoot.getElementById('sp-gate-guest-btn');
-    if (guestBtn) {
-      guestBtn.addEventListener('click', () => {
-        visitorName = 'Guest';
-        visitorEmail = '';
-        try {
-          sessionStorage.setItem('sitepulse_visitor_name', 'Guest');
-          sessionStorage.setItem('sitepulse_chat_active', 'true');
-        } catch (err) {}
-
-        // Hide gate and show banner
-        shadowRoot.getElementById('sp-email-gate').style.display = 'none';
-        const banner = shadowRoot.getElementById('sp-chat-banner');
-        const visitorTag = shadowRoot.getElementById('sp-visitor-tag');
-        if (banner && visitorTag) {
-          visitorTag.innerHTML = `Chatting as: <strong>Guest</strong>`;
-          banner.style.display = 'flex';
-        }
-
-        // Initialize real-time chat
-        loadSocketIO(() => {
-          setupRealtimeChat();
-        });
+        // Focus chat input immediately
+        const chatInput = shadowRoot.getElementById('sp-chat-input');
+        if (chatInput) chatInput.focus();
       });
     }
 
@@ -1059,17 +1049,41 @@
     return String(str).replace(/"/g, '&quot;');
   }
 
+  function showChatAlert(message) {
+    console.error('[SitePulse] ' + message);
+    if (shadowRoot) {
+      const chatArea = shadowRoot.getElementById('sp-chat-messages');
+      if (chatArea) {
+        const existingAlert = shadowRoot.getElementById('sp-connection-alert');
+        if (!existingAlert) {
+          const alertEl = document.createElement('div');
+          alertEl.id = 'sp-connection-alert';
+          alertEl.style.cssText = 'background:#fef2f2;border:1px solid #f87171;color:#991b1b;padding:10px 14px;border-radius:8px;font-size:12.5px;line-height:1.4;margin:10px 0;text-align:center;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,0.05);';
+          alertEl.innerHTML = `<strong>Connection Alert:</strong> ${escapeHTML(message)}`;
+          chatArea.prepend(alertEl);
+        }
+      }
+    }
+    try {
+      alert(`[SitePulse] ${message}`);
+    } catch (e) {}
+  }
+
   function loadSocketIO(callback) {
     if (window.io) {
       if (callback) callback();
       return;
     }
-    // 1. Try local backend socket.io.js first (immediate, reliable, offline-safe)
+
+    // 1. Primary: Load from self-hosted backend socket.io.js (fast, local, offline-safe)
     const localScript = document.createElement('script');
     localScript.src = `${backendUrl}/socket.io/socket.io.js`;
     localScript.onload = () => {
-      if (window.io && callback) callback();
-      else fallbackCDN();
+      if (window.io) {
+        if (callback) callback();
+      } else {
+        fallbackCDN();
+      }
     };
     localScript.onerror = () => {
       fallbackCDN();
@@ -1080,13 +1094,18 @@
         if (callback) callback();
         return;
       }
+      // 2. Secondary: Fallback to latest Socket.IO client CDN (v4.8.4)
       const cdnScript = document.createElement('script');
-      cdnScript.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      cdnScript.src = 'https://cdn.socket.io/4.8.4/socket.io.min.js';
       cdnScript.onload = () => {
-        if (window.io && callback) callback();
+        if (window.io) {
+          if (callback) callback();
+        } else {
+          showChatAlert('Failed to load real-time chat client from local server and CDN. Please check your network or firewall.');
+        }
       };
       cdnScript.onerror = (err) => {
-        console.error('[SitePulse] Failed to load Socket.IO from both backend and CDN:', err);
+        showChatAlert('Failed to load real-time chat client from local server and CDN. Please check your network or firewall.');
       };
       document.head.appendChild(cdnScript);
     }
@@ -1303,10 +1322,20 @@
     const content = input.value.trim();
     if (!content) return;
 
+    if (content.length > 5000) {
+      alert('Message exceeds maximum limit of 5,000 characters.');
+      return;
+    }
+
     if (isEmailGateRequired()) {
       const gate = shadowRoot.getElementById('sp-email-gate');
+      const errorEl = shadowRoot.getElementById('sp-gate-error');
       if (gate) {
         gate.style.display = 'flex';
+        if (errorEl) {
+          errorEl.textContent = 'Please enter your email to start chatting.';
+          errorEl.style.display = 'block';
+        }
         const emailInput = shadowRoot.getElementById('sp-gate-email');
         if (emailInput) emailInput.focus();
         return;
