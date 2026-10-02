@@ -58,8 +58,14 @@ const io = new Server(server, {
 
 // Real-time Chat Gateway
 io.on('connection', (socket) => {
-  // Admin joins site-wide monitoring room
+  // Admin or Visitor joins site-wide configuration room
   socket.on('join_site_admin', ({ siteKey }) => {
+    if (siteKey) {
+      socket.join(`site_${siteKey}`);
+    }
+  });
+
+  socket.on('join_site', ({ siteKey }) => {
     if (siteKey) {
       socket.join(`site_${siteKey}`);
     }
@@ -400,6 +406,9 @@ function normalizePathname(urlOrPath, baseOrigin) {
     path = path.split('?')[0].split('#')[0];
     if (!path.startsWith('/')) path = '/' + path;
     path = path.replace(/\/+/g, '/');
+    if (path.length > 1 && path.endsWith('/')) {
+      path = path.slice(0, -1);
+    }
     return path.toLowerCase();
   } catch (e) {
     return '/';
@@ -528,10 +537,25 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
       targetUrl = `https://${rawDomain}`;
     }
 
+    try {
+      const parsed = new URL(targetUrl);
+      const h = parsed.hostname.toLowerCase();
+      if (h.startsWith('169.254.') || h === 'metadata.google.internal' || h === '0.0.0.0' || h === '[::1]' || h === '::1') {
+        return res.status(400).json({ error: 'Scanning internal link-local or metadata addresses is restricted for security.' });
+      }
+      if (h === 'localhost' && process.env.PORT && parsed.port && parsed.port !== String(process.env.PORT)) {
+        targetUrl = targetUrl.replace(`:${parsed.port}`, `:${process.env.PORT}`);
+      }
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid site domain URL format.' });
+    }
+
+    const MAX_DISCOVERED_PAGES = 100;
     const discoveredSet = new Set(['/']);
     const issues = [];
 
     async function fetchAndParseLinks(url) {
+      if (discoveredSet.size >= MAX_DISCOVERED_PAGES) return;
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 6000);
@@ -545,6 +569,12 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
 
         if (!resp.ok) {
           issues.push(`HTTP ${resp.status} on ${url}`);
+          return;
+        }
+
+        const cl = parseInt(resp.headers.get('content-length') || '0', 10);
+        if (cl > 2 * 1024 * 1024) {
+          issues.push(`Response on ${url} exceeds 2MB limit.`);
           return;
         }
 

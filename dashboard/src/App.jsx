@@ -739,6 +739,31 @@ export default function App() {
     }));
   };
 
+  const handleRemovePageRule = (path, isCustom) => {
+    setPageRules(prev => {
+      const nextRules = { ...(prev.rules || {}) };
+      delete nextRules[path];
+      return {
+        ...prev,
+        rules: nextRules
+      };
+    });
+    if (isCustom) {
+      setDiscoveredPages(prev => prev.filter(p => p.path !== path));
+    }
+  };
+
+  const handleBulkSetRules = (shouldAllow) => {
+    const newRules = { ...(pageRules.rules || {}) };
+    discoveredPages.forEach(p => {
+      newRules[p.path] = shouldAllow;
+    });
+    setPageRules(prev => ({
+      ...prev,
+      rules: newRules
+    }));
+  };
+
   const handleAddCustomPattern = (e) => {
     e.preventDefault();
     if (!customPatternInput.trim()) return;
@@ -1890,6 +1915,28 @@ export default function App() {
                           <RefreshCw className={`w-3.5 h-3.5 ${scanningSite ? 'animate-spin' : ''}`} />
                           <span>{scanningSite ? 'Scanning...' : 'Scan Website'}</span>
                         </button>
+
+                        {/* Bulk Action Buttons */}
+                        {discoveredPages.length > 1 && (
+                          <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                            <button
+                              type="button"
+                              onClick={() => handleBulkSetRules(true)}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer"
+                              title="Show widget on all discovered pages"
+                            >
+                              Enable All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleBulkSetRules(false)}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer"
+                              title="Hide widget on all discovered pages"
+                            >
+                              Disable All
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1979,27 +2026,39 @@ export default function App() {
                                       )}
                                     </td>
                                     <td className="py-3.5 px-5 text-right">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleTogglePageRule(path)}
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
-                                          isAllowed
-                                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                            : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                                        }`}
-                                      >
-                                        {isAllowed ? (
-                                          <>
-                                            <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                                            <span>Active (Visible)</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <EyeOff className="w-3.5 h-3.5 text-rose-600" />
-                                            <span>Hidden (Disabled)</span>
-                                          </>
+                                      <div className="flex items-center justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleTogglePageRule(path)}
+                                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
+                                            isAllowed
+                                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                              : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                          }`}
+                                        >
+                                          {isAllowed ? (
+                                            <>
+                                              <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                              <span>Active (Visible)</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <EyeOff className="w-3.5 h-3.5 text-rose-600" />
+                                              <span>Hidden (Disabled)</span>
+                                            </>
+                                          )}
+                                        </button>
+                                        {(isExplicit || item.source === 'custom_rule') && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemovePageRule(path, item.source === 'custom_rule')}
+                                            title={item.source === 'custom_rule' ? "Delete custom rule" : "Reset override to default"}
+                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition border border-transparent hover:border-rose-200 cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
                                         )}
-                                      </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
