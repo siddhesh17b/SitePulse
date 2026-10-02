@@ -422,11 +422,12 @@ app.get('/api/v1/sites/:siteKey/pages', authMiddleware, async (req, res) => {
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
 
-    // 1. Get all distinct pages from analytics events
+    // 1. Get distinct pages from recent analytics events (capped for performance)
     const events = await prisma.analyticsEvent.findMany({
       where: { siteId: site.id },
       select: { pathname: true, createdAt: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: 2000
     });
 
     const pageMap = new Map();
@@ -550,16 +551,25 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid site domain URL format.' });
     }
 
+    const MAX_FETCHES = 25;
     const MAX_DISCOVERED_PAGES = 100;
     const discoveredSet = new Set(['/']);
+    const visitedUrls = new Set();
+    const queue = [targetUrl];
     const issues = [];
+    const parsedTarget = new URL(targetUrl);
+    const targetOrigin = parsedTarget.origin.toLowerCase();
 
-    async function fetchAndParseLinks(url) {
-      if (discoveredSet.size >= MAX_DISCOVERED_PAGES) return;
+    // 1. Multi-level BFS Crawl of internal links
+    while (queue.length > 0 && visitedUrls.size < MAX_FETCHES && discoveredSet.size < MAX_DISCOVERED_PAGES) {
+      const currentUrl = queue.shift();
+      if (visitedUrls.has(currentUrl)) continue;
+      visitedUrls.add(currentUrl);
+
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        const resp = await fetch(url, {
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        const resp = await fetch(currentUrl, {
           signal: controller.signal,
           headers: {
             'User-Agent': 'SitePulse-Bot/1.0 (+http://localhost:5000)'
@@ -568,28 +578,27 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
         clearTimeout(timeout);
 
         if (!resp.ok) {
-          issues.push(`HTTP ${resp.status} on ${url}`);
-          return;
+          if (visitedUrls.size === 1) {
+            issues.push(`HTTP ${resp.status} on ${currentUrl}`);
+          }
+          continue;
         }
 
         const cl = parseInt(resp.headers.get('content-length') || '0', 10);
         if (cl > 2 * 1024 * 1024) {
-          issues.push(`Response on ${url} exceeds 2MB limit.`);
-          return;
+          continue;
         }
 
         const contentType = resp.headers.get('content-type') || '';
         if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
-          return;
+          continue;
         }
 
         const html = await resp.text();
-        const uObj = new URL(url);
-
-        const hrefRegex = /href=["']([^"']+)["']/gi;
+        const hrefRegex = /href\s*=\s*(?:["']([^"']+)["']|([^\s>]+))/gi;
         let match;
-        while ((match = hrefRegex.exec(html)) !== null) {
-          const href = match[1].trim();
+        while ((match = hrefRegex.exec(html)) !== null && discoveredSet.size < MAX_DISCOVERED_PAGES) {
+          const href = (match[1] || match[2] || '').trim();
           if (
             !href ||
             href.startsWith('#') ||
@@ -601,53 +610,117 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
             continue;
           }
 
-          if (/\.(png|jpg|jpeg|gif|webp|svg|css|js|woff|woff2|ttf|ico|pdf|zip)$/i.test(href)) {
+          if (/\.(png|jpg|jpeg|gif|webp|svg|css|js|woff|woff2|ttf|ico|pdf|zip|xml|json|txt|mp4|webm|mp3|wav|ogg)$/i.test(href)) {
             continue;
           }
 
           try {
-            const resolved = new URL(href, url);
-            if (resolved.origin.toLowerCase() === uObj.origin.toLowerCase()) {
+            const resolved = new URL(href, currentUrl);
+            if (resolved.origin.toLowerCase() === targetOrigin) {
               const cleanPath = normalizePathname(resolved.pathname);
               discoveredSet.add(cleanPath);
+              const fullNormalizedUrl = resolved.origin + cleanPath;
+              if (
+                !visitedUrls.has(fullNormalizedUrl) &&
+                !queue.includes(fullNormalizedUrl) &&
+                visitedUrls.size + queue.length < MAX_FETCHES
+              ) {
+                queue.push(fullNormalizedUrl);
+              }
             }
           } catch (e) {}
         }
       } catch (err) {
-        issues.push(`Fetch failed for ${url}: ${err.message}`);
+        if (visitedUrls.size === 1) {
+          issues.push(`Fetch failed for ${currentUrl}: ${err.message}`);
+        }
       }
     }
-
-    await fetchAndParseLinks(targetUrl);
 
     // If scanning local demo or root, also test common HTML demo endpoints
     if (targetUrl.includes('demo2') || rawDomain.includes('demo2')) {
       const baseDemo = targetUrl.replace(/\/+$/, '');
-      await fetchAndParseLinks(`${baseDemo}/index.html`);
-      await fetchAndParseLinks(`${baseDemo}/tables.html`);
-      await fetchAndParseLinks(`${baseDemo}/alerts.html`);
-      await fetchAndParseLinks(`${baseDemo}/profile.html`);
+      const demoEndpoints = ['/index.html', '/tables.html', '/alerts.html', '/profile.html'];
+      demoEndpoints.forEach(ep => discoveredSet.add(ep));
     }
 
-    // Attempt sitemap discovery
+    // 2. Discover Sitemaps (including robots.txt and sitemap index files)
+    const sitemapCandidates = [
+      new URL('/sitemap.xml', targetUrl).href,
+      new URL('/sitemap_index.xml', targetUrl).href
+    ];
+
     try {
-      const sitemapUrl = new URL('/sitemap.xml', targetUrl).href;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
-      const smResp = await fetch(sitemapUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (smResp.ok) {
-        const xml = await smResp.text();
-        const locRegex = /<loc>(https?:\/\/[^<]+)<\/loc>/gi;
-        let m;
-        while ((m = locRegex.exec(xml)) !== null) {
-          try {
-            const locUrl = new URL(m[1].trim());
-            discoveredSet.add(normalizePathname(locUrl.pathname));
-          } catch (e) {}
+      const robotsUrl = new URL('/robots.txt', targetUrl).href;
+      const rCtrl = new AbortController();
+      const rTimeout = setTimeout(() => rCtrl.abort(), 3000);
+      const rResp = await fetch(robotsUrl, { signal: rCtrl.signal }).catch(() => null);
+      clearTimeout(rTimeout);
+      if (rResp && rResp.ok) {
+        const rTxt = await rResp.text();
+        const smRegex = /sitemap:\s*(https?:\/\/[^\s\r\n]+)/gi;
+        let smMatch;
+        while ((smMatch = smRegex.exec(rTxt)) !== null) {
+          if (!sitemapCandidates.includes(smMatch[1].trim())) {
+            sitemapCandidates.push(smMatch[1].trim());
+          }
         }
       }
     } catch (e) {}
+
+    for (const smUrl of sitemapCandidates) {
+      if (discoveredSet.size >= MAX_DISCOVERED_PAGES) break;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+        const smResp = await fetch(smUrl, { signal: controller.signal }).catch(() => null);
+        clearTimeout(timeout);
+        if (!smResp || !smResp.ok) continue;
+
+        const xml = await smResp.text();
+        const isSitemapIndex = xml.includes('<sitemapindex') || xml.includes('<sitemap>');
+        const locRegex = /<loc>(https?:\/\/[^<]+)<\/loc>/gi;
+        let m;
+
+        if (isSitemapIndex) {
+          const childSitemaps = [];
+          while ((m = locRegex.exec(xml)) !== null && childSitemaps.length < 3) {
+            childSitemaps.push(m[1].trim());
+          }
+          for (const childUrl of childSitemaps) {
+            if (discoveredSet.size >= MAX_DISCOVERED_PAGES) break;
+            try {
+              const cCtrl = new AbortController();
+              const cTimeout = setTimeout(() => cCtrl.abort(), 3000);
+              const cResp = await fetch(childUrl, { signal: cCtrl.signal }).catch(() => null);
+              clearTimeout(cTimeout);
+              if (cResp && cResp.ok) {
+                const cXml = await cResp.text();
+                const cLocRegex = /<loc>(https?:\/\/[^<]+)<\/loc>/gi;
+                let cm;
+                while ((cm = cLocRegex.exec(cXml)) !== null && discoveredSet.size < MAX_DISCOVERED_PAGES) {
+                  try {
+                    const locUrl = new URL(cm[1].trim());
+                    if (locUrl.origin.toLowerCase() === targetOrigin && !locUrl.pathname.endsWith('.xml')) {
+                      discoveredSet.add(normalizePathname(locUrl.pathname));
+                    }
+                  } catch (e) {}
+                }
+              }
+            } catch (e) {}
+          }
+        } else {
+          while ((m = locRegex.exec(xml)) !== null && discoveredSet.size < MAX_DISCOVERED_PAGES) {
+            try {
+              const locUrl = new URL(m[1].trim());
+              if (locUrl.origin.toLowerCase() === targetOrigin && !locUrl.pathname.endsWith('.xml')) {
+                discoveredSet.add(normalizePathname(locUrl.pathname));
+              }
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    }
 
     const newDiscoveredPages = Array.from(discoveredSet).map(p => ({
       path: p,

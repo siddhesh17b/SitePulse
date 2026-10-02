@@ -771,6 +771,9 @@ export default function App() {
     if (!clean.startsWith('/') && !clean.startsWith('*')) {
       clean = '/' + clean;
     }
+    if (clean.length > 1 && clean.endsWith('/') && !clean.endsWith('/*')) {
+      clean = clean.slice(0, -1);
+    }
     const isAllowed = customPatternAction === 'allow';
     setPageRules(prev => ({
       ...prev,
