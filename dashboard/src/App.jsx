@@ -26,7 +26,11 @@ import {
   X,
   Globe,
   Key,
-  Code2
+  Code2,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -165,6 +169,21 @@ export default function App() {
     uniqueVisitors: 0,
     topPages: []
   });
+
+  // Page Rules & Auto-Discovery State
+  const [discoveredPages, setDiscoveredPages] = useState([]);
+  const [pageRules, setPageRules] = useState({
+    enabled: true,
+    defaultPolicy: 'allow',
+    rules: {}
+  });
+  const [scanningSite, setScanningSite] = useState(false);
+  const [scanMessage, setScanMessage] = useState(null);
+  const [pageSearchQuery, setPageSearchQuery] = useState('');
+  const [customPatternInput, setCustomPatternInput] = useState('');
+  const [customPatternAction, setCustomPatternAction] = useState('block');
+  const [savingPageRules, setSavingPageRules] = useState(false);
+  const [pageRulesSaved, setPageRulesSaved] = useState(false);
 
   const handleLogout = () => {
     try {
@@ -585,6 +604,8 @@ export default function App() {
       authFetch(`${BACKEND_URL}/api/v1/events/stats?siteKey=${activeSite.apiKey}`)
         .then(r => r.json())
         .then(d => setAnalytics(d));
+    } else if (activeNav === 'page-rules') {
+      loadDiscoveredPages();
     }
   }, [activeNav, activeSite]);
 
@@ -658,6 +679,121 @@ export default function App() {
     navigator.clipboard.writeText(code);
     setCopiedSnippet(true);
     setTimeout(() => setCopiedSnippet(false), 2000);
+  };
+
+  // Page Rules Handlers
+  const loadDiscoveredPages = async () => {
+    if (!activeSite || !token) return;
+    try {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/sites/${activeSite.apiKey}/pages`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiscoveredPages(data.pages || []);
+        if (data.pageRules) {
+          setPageRules(data.pageRules);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load site pages:', e);
+    }
+  };
+
+  const handleScanWebsite = async () => {
+    if (!activeSite || !token || scanningSite) return;
+    setScanningSite(true);
+    setScanMessage(null);
+    try {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/sites/${activeSite.apiKey}/scan`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setScanMessage({ 
+          type: 'success', 
+          text: `Scan complete: ${data.count} page(s) discovered on ${activeSite.domain}` 
+        });
+        await loadDiscoveredPages();
+      } else {
+        setScanMessage({ type: 'error', text: data.error || 'Scan failed' });
+      }
+    } catch (e) {
+      setScanMessage({ type: 'error', text: 'Scan request failed: ' + e.message });
+    } finally {
+      setScanningSite(false);
+    }
+  };
+
+  const handleTogglePageRule = (path) => {
+    const isExplicit = pageRules.rules?.[path] !== undefined;
+    const isCurrentlyAllowed = isExplicit 
+      ? Boolean(pageRules.rules[path])
+      : pageRules.defaultPolicy !== 'block';
+    
+    const nextAllowed = !isCurrentlyAllowed;
+    setPageRules(prev => ({
+      ...prev,
+      rules: {
+        ...(prev.rules || {}),
+        [path]: nextAllowed
+      }
+    }));
+  };
+
+  const handleAddCustomPattern = (e) => {
+    e.preventDefault();
+    if (!customPatternInput.trim()) return;
+    let clean = customPatternInput.trim().toLowerCase();
+    if (!clean.startsWith('/') && !clean.startsWith('*')) {
+      clean = '/' + clean;
+    }
+    const isAllowed = customPatternAction === 'allow';
+    setPageRules(prev => ({
+      ...prev,
+      rules: {
+        ...(prev.rules || {}),
+        [clean]: isAllowed
+      }
+    }));
+    if (!discoveredPages.some(p => p.path === clean)) {
+      setDiscoveredPages(prev => [
+        { path: clean, source: 'custom_rule', lastSeen: new Date().toISOString(), views: 0 },
+        ...prev
+      ]);
+    }
+    setCustomPatternInput('');
+  };
+
+  const handleSavePageRules = async () => {
+    if (!activeSite || !token) return;
+    setSavingPageRules(true);
+    setPageRulesSaved(false);
+    try {
+      const currentSettings = activeSite.widgetSettings || {};
+      const updatedSettings = {
+        ...currentSettings,
+        widgetActive: pageRules.enabled !== false,
+        pageRules: {
+          ...pageRules,
+          discoveredPages: discoveredPages
+        }
+      };
+      const res = await authFetch(`${BACKEND_URL}/api/v1/widget/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteKey: activeSite.apiKey, settings: updatedSettings })
+      });
+      if (res.ok) {
+        setPageRulesSaved(true);
+        setActiveSite(prev => ({ ...prev, widgetSettings: updatedSettings }));
+        setTimeout(() => setPageRulesSaved(false), 2500);
+      } else {
+        alert('Failed to save page rules');
+      }
+    } catch (e) {
+      alert('Error saving rules: ' + e.message);
+    } finally {
+      setSavingPageRules(false);
+    }
   };
 
   // Total unread across all conversations
@@ -975,6 +1111,22 @@ export default function App() {
             >
               <Palette className="w-5 h-5" />
               <span>Widget Customizer</span>
+            </button>
+
+            {/* 3. Page Rules & Display */}
+            <button
+              onClick={() => {
+                setActiveNav('page-rules');
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
+                activeNav === 'page-rules'
+                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-5 h-5" />
+              <span>Page Rules & Display</span>
             </button>
 
             {/* 3. Feedback & Bugs */}
@@ -1629,6 +1781,302 @@ export default function App() {
                 </div>
               )}
 
+              {/* TAB: PAGE RULES & DISPLAY */}
+              {activeNav === 'page-rules' && (
+                <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 max-w-5xl bg-slate-50">
+                  {/* 1. Header & Master Status */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                      <div>
+                        <div className="flex items-center gap-2.5">
+                          <h2 className="text-xl font-bold text-slate-900">Page Targeting & Display Rules</h2>
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-[#287170]/10 text-[#287170]">
+                            {activeSite.name}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1 font-medium">
+                          Control exactly which pages display the SitePulse widget across your website without editing code.
+                        </p>
+                      </div>
+
+                      {/* Master Widget Switch */}
+                      <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 p-2 px-3.5 rounded-xl shrink-0">
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Widget Status</div>
+                          <div className={`text-sm font-bold ${pageRules.enabled !== false ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {pageRules.enabled !== false ? 'Active Site-wide' : 'Disabled Site-wide'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPageRules(prev => ({ ...prev, enabled: prev.enabled === false }))}
+                          className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${
+                            pageRules.enabled !== false ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
+                          }`}
+                        >
+                          <div className="bg-white w-4 h-4 rounded-full shadow-md transform transition" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Default Policy Selector */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <div>
+                        <label className="text-sm font-bold text-slate-800 block">Default Visibility for New / Unlisted Pages</label>
+                        <p className="text-xs text-slate-500 font-medium">When a visitor visits a page not explicitly listed in the table below</p>
+                      </div>
+                      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'allow' }))}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            pageRules.defaultPolicy !== 'block'
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Show Widget (Default)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'block' }))}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            pageRules.defaultPolicy === 'block'
+                              ? 'bg-white text-rose-700 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Hide Widget (Strict Whitelist)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Discovered Pages Table & Scanner */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <span>Discovered Pages & Paths</span>
+                          <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">
+                            {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length} Found
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Auto-detected via website link crawler and real-time visitor traffic.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        {/* Search Box */}
+                        <div className="relative">
+                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Filter paths..."
+                            value={pageSearchQuery}
+                            onChange={(e) => setPageSearchQuery(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#287170] w-40 sm:w-48 font-medium"
+                          />
+                        </div>
+
+                        {/* Crawler Scan Button */}
+                        <button
+                          type="button"
+                          onClick={handleScanWebsite}
+                          disabled={scanningSite}
+                          className="px-3.5 py-1.5 bg-[#287170] hover:bg-[#205d5c] text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${scanningSite ? 'animate-spin' : ''}`} />
+                          <span>{scanningSite ? 'Scanning...' : 'Scan Website'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Scan Feedback Banner */}
+                    {scanMessage && (
+                      <div className={`p-3 px-5 text-xs font-semibold flex items-center justify-between border-b ${
+                        scanMessage.type === 'success' 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-100' 
+                          : 'bg-rose-50 text-rose-800 border-rose-100'
+                      }`}>
+                        <span>{scanMessage.text}</span>
+                        <button onClick={() => setScanMessage(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+                      </div>
+                    )}
+
+                    {/* Pages Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-100 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <th className="py-3 px-5">Path / Page</th>
+                            <th className="py-3 px-4">Discovery Source</th>
+                            <th className="py-3 px-4">Rule Mode</th>
+                            <th className="py-3 px-5 text-right">Widget Visibility</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-sm">
+                          {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="py-8 text-center text-slate-500 text-sm">
+                                {pageSearchQuery ? 'No pages match your search.' : 'No pages discovered yet. Click "Scan Website" to crawl your domain.'}
+                              </td>
+                            </tr>
+                          ) : (
+                            discoveredPages
+                              .filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase()))
+                              .map((item) => {
+                                const path = item.path;
+                                const isExplicit = pageRules.rules?.[path] !== undefined;
+                                const isAllowed = isExplicit 
+                                  ? Boolean(pageRules.rules[path])
+                                  : pageRules.defaultPolicy !== 'block';
+
+                                return (
+                                  <tr key={path} className="hover:bg-slate-50/75 transition-colors">
+                                    <td className="py-3.5 px-5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-sm font-semibold text-slate-900 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                          {path}
+                                        </span>
+                                        {path === '/' && (
+                                          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                            Homepage
+                                          </span>
+                                        )}
+                                        {item.views > 0 && (
+                                          <span className="text-[11px] text-slate-500 font-medium">
+                                            ({item.views} {item.views === 1 ? 'view' : 'views'})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="py-3.5 px-4">
+                                      {item.source === 'traffic' ? (
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-100">
+                                          📡 Real Traffic
+                                        </span>
+                                      ) : item.source === 'crawler' ? (
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                                          🔍 Crawler Link
+                                        </span>
+                                      ) : item.source === 'custom_rule' ? (
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                                          ⚙️ Custom Pattern
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                                          🏠 Root
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="py-3.5 px-4 text-xs font-medium text-slate-500">
+                                      {isExplicit ? (
+                                        <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">Custom Override</span>
+                                      ) : (
+                                        <span className="text-slate-400">Default Policy</span>
+                                      )}
+                                    </td>
+                                    <td className="py-3.5 px-5 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleTogglePageRule(path)}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
+                                          isAllowed
+                                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                            : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                        }`}
+                                      >
+                                        {isAllowed ? (
+                                          <>
+                                            <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span>Active (Visible)</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <EyeOff className="w-3.5 h-3.5 text-rose-600" />
+                                            <span>Hidden (Disabled)</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 4. Add Custom Wildcard / Pattern Rule */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                      <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-lg">
+                        *
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Add Custom Path or Wildcard Pattern</h3>
+                        <p className="text-xs text-slate-500 font-medium">Pre-emptively hide or show the widget on paths (e.g. <code>/checkout/*</code>, <code>/admin/*</code>, or <code>/login</code>)</p>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleAddCustomPattern} className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                      <div className="relative flex-1 w-full">
+                        <input
+                          type="text"
+                          placeholder="e.g. /checkout/* or /login or *.html"
+                          value={customPatternInput}
+                          onChange={(e) => setCustomPatternInput(e.target.value)}
+                          className="w-full font-mono text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] font-medium"
+                        />
+                      </div>
+                      <select
+                        value={customPatternAction}
+                        onChange={(e) => setCustomPatternAction(e.target.value)}
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#287170] cursor-pointer"
+                      >
+                        <option value="block">Hide Widget (Disabled)</option>
+                        <option value="allow">Show Widget (Active)</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Pattern</span>
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* 5. Save & Publish Bar */}
+                  <div className="sticky bottom-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="text-xs text-slate-600 font-medium">
+                      Changes take effect in real-time across your visitors and single-page app navigations.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSavePageRules}
+                      disabled={savingPageRules}
+                      className="px-6 py-2.5 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-bold rounded-xl transition shadow-sm shadow-[#287170]/25 flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+                    >
+                      {pageRulesSaved ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-300" />
+                          <span>Rules Published Live!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>{savingPageRules ? 'Publishing...' : 'Save & Publish Rules'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* TAB 5: PROPERTY SETTINGS & DANGER ZONE */}
               {activeNav === 'settings' && (
                 <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 max-w-4xl bg-slate-50">
@@ -1715,6 +2163,20 @@ export default function App() {
                       >
                         {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#287170]" />}
                         <span>{copiedSnippet ? 'Copied' : 'Copy Code'}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm">
+                      <div className="flex items-center gap-2 text-slate-700 font-medium">
+                        <Layers className="w-4 h-4 text-[#287170]" />
+                        <span>Want to show or hide the widget on specific pages?</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveNav('page-rules')}
+                        className="text-[#287170] hover:text-[#205d5c] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Configure Page Rules →</span>
                       </button>
                     </div>
                   </div>

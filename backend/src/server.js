@@ -379,6 +379,298 @@ app.put('/api/v1/sites/:id/settings', authMiddleware, async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// PAGE TARGETING & AUTO-DISCOVERY API
+// -------------------------------------------------------------
+
+function normalizePathname(urlOrPath, baseOrigin) {
+  try {
+    if (!urlOrPath) return '/';
+    let path = urlOrPath.trim();
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      const u = new URL(path);
+      path = u.pathname;
+    } else if (path.startsWith('//')) {
+      const u = new URL('http:' + path);
+      path = u.pathname;
+    } else if (baseOrigin && !path.startsWith('/')) {
+      const u = new URL(path, baseOrigin);
+      path = u.pathname;
+    }
+    path = path.split('?')[0].split('#')[0];
+    if (!path.startsWith('/')) path = '/' + path;
+    path = path.replace(/\/+/g, '/');
+    return path.toLowerCase();
+  } catch (e) {
+    return '/';
+  }
+}
+
+// Protected: Get all discovered and traffic-recorded pages for a site
+app.get('/api/v1/sites/:siteKey/pages', authMiddleware, async (req, res) => {
+  try {
+    const { siteKey } = req.params;
+    const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
+    if (!site) return res.status(404).json({ error: 'Site not found' });
+
+    // 1. Get all distinct pages from analytics events
+    const events = await prisma.analyticsEvent.findMany({
+      where: { siteId: site.id },
+      select: { pathname: true, createdAt: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const pageMap = new Map();
+
+    // Always include root /
+    pageMap.set('/', {
+      path: '/',
+      source: 'root',
+      lastSeen: new Date().toISOString(),
+      views: 0
+    });
+
+    events.forEach(e => {
+      const clean = normalizePathname(e.pathname);
+      if (!pageMap.has(clean)) {
+        pageMap.set(clean, {
+          path: clean,
+          source: 'traffic',
+          lastSeen: e.createdAt,
+          views: 1
+        });
+      } else {
+        const item = pageMap.get(clean);
+        item.views = (item.views || 0) + 1;
+        if (new Date(e.createdAt) > new Date(item.lastSeen)) {
+          item.lastSeen = e.createdAt;
+        }
+      }
+    });
+
+    // 2. Add crawler-discovered pages from widgetSettings
+    const settings = site.widgetSettings || {};
+    const pageRules = settings.pageRules || {
+      enabled: true,
+      defaultPolicy: 'allow',
+      rules: {}
+    };
+
+    if (Array.isArray(pageRules.discoveredPages)) {
+      pageRules.discoveredPages.forEach(p => {
+        const pathStr = typeof p === 'string' ? p : p.path;
+        const clean = normalizePathname(pathStr);
+        if (!pageMap.has(clean)) {
+          pageMap.set(clean, {
+            path: clean,
+            source: (typeof p === 'object' && p.source) || 'crawler',
+            lastSeen: (typeof p === 'object' && p.lastSeen) || site.createdAt,
+            views: 0
+          });
+        }
+      });
+    }
+
+    // 3. Add any custom rules configured by the user
+    if (pageRules.rules && typeof pageRules.rules === 'object') {
+      Object.keys(pageRules.rules).forEach(rulePath => {
+        const clean = rulePath.trim().toLowerCase();
+        if (!pageMap.has(clean)) {
+          pageMap.set(clean, {
+            path: clean,
+            source: 'custom_rule',
+            lastSeen: site.createdAt,
+            views: 0
+          });
+        }
+      });
+    }
+
+    const pages = Array.from(pageMap.values()).sort((a, b) => {
+      if (a.path === '/') return -1;
+      if (b.path === '/') return 1;
+      return a.path.localeCompare(b.path);
+    });
+
+    res.json({
+      siteKey: site.apiKey,
+      siteDomain: site.domain,
+      pages,
+      pageRules: {
+        enabled: pageRules.enabled !== false,
+        defaultPolicy: pageRules.defaultPolicy || 'allow',
+        rules: pageRules.rules || {}
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Protected: Scan Website Domain for Pages (HTML crawler + sitemap)
+app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
+  try {
+    const { siteKey } = req.params;
+    const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
+    if (!site) return res.status(404).json({ error: 'Site not found' });
+
+    let rawDomain = (site.domain || '').trim();
+    if (!rawDomain) {
+      return res.status(400).json({ error: 'Site domain is not configured.' });
+    }
+
+    let targetUrl;
+    if (rawDomain.startsWith('http://') || rawDomain.startsWith('https://')) {
+      targetUrl = rawDomain;
+    } else if (rawDomain.startsWith('localhost') || rawDomain.startsWith('127.0.0.1')) {
+      targetUrl = `http://${rawDomain}`;
+    } else {
+      targetUrl = `https://${rawDomain}`;
+    }
+
+    const discoveredSet = new Set(['/']);
+    const issues = [];
+
+    async function fetchAndParseLinks(url) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const resp = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'SitePulse-Bot/1.0 (+http://localhost:5000)'
+          }
+        });
+        clearTimeout(timeout);
+
+        if (!resp.ok) {
+          issues.push(`HTTP ${resp.status} on ${url}`);
+          return;
+        }
+
+        const contentType = resp.headers.get('content-type') || '';
+        if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+          return;
+        }
+
+        const html = await resp.text();
+        const uObj = new URL(url);
+
+        const hrefRegex = /href=["']([^"']+)["']/gi;
+        let match;
+        while ((match = hrefRegex.exec(html)) !== null) {
+          const href = match[1].trim();
+          if (
+            !href ||
+            href.startsWith('#') ||
+            href.startsWith('mailto:') ||
+            href.startsWith('tel:') ||
+            href.startsWith('javascript:') ||
+            href.startsWith('data:')
+          ) {
+            continue;
+          }
+
+          if (/\.(png|jpg|jpeg|gif|webp|svg|css|js|woff|woff2|ttf|ico|pdf|zip)$/i.test(href)) {
+            continue;
+          }
+
+          try {
+            const resolved = new URL(href, url);
+            if (resolved.origin.toLowerCase() === uObj.origin.toLowerCase()) {
+              const cleanPath = normalizePathname(resolved.pathname);
+              discoveredSet.add(cleanPath);
+            }
+          } catch (e) {}
+        }
+      } catch (err) {
+        issues.push(`Fetch failed for ${url}: ${err.message}`);
+      }
+    }
+
+    await fetchAndParseLinks(targetUrl);
+
+    // If scanning local demo or root, also test common HTML demo endpoints
+    if (targetUrl.includes('demo2') || rawDomain.includes('demo2')) {
+      const baseDemo = targetUrl.replace(/\/+$/, '');
+      await fetchAndParseLinks(`${baseDemo}/index.html`);
+      await fetchAndParseLinks(`${baseDemo}/tables.html`);
+      await fetchAndParseLinks(`${baseDemo}/alerts.html`);
+      await fetchAndParseLinks(`${baseDemo}/profile.html`);
+    }
+
+    // Attempt sitemap discovery
+    try {
+      const sitemapUrl = new URL('/sitemap.xml', targetUrl).href;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      const smResp = await fetch(sitemapUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (smResp.ok) {
+        const xml = await smResp.text();
+        const locRegex = /<loc>(https?:\/\/[^<]+)<\/loc>/gi;
+        let m;
+        while ((m = locRegex.exec(xml)) !== null) {
+          try {
+            const locUrl = new URL(m[1].trim());
+            discoveredSet.add(normalizePathname(locUrl.pathname));
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    const newDiscoveredPages = Array.from(discoveredSet).map(p => ({
+      path: p,
+      source: 'crawler',
+      lastSeen: new Date().toISOString()
+    }));
+
+    const currentSettings = site.widgetSettings || {};
+    const currentPageRules = currentSettings.pageRules || {
+      enabled: true,
+      defaultPolicy: 'allow',
+      rules: {}
+    };
+
+    const existingDiscovered = Array.isArray(currentPageRules.discoveredPages)
+      ? currentPageRules.discoveredPages
+      : [];
+
+    const mergedDiscoveredMap = new Map();
+    existingDiscovered.forEach(p => {
+      const pathStr = typeof p === 'string' ? p : p.path;
+      mergedDiscoveredMap.set(pathStr, p);
+    });
+    newDiscoveredPages.forEach(p => {
+      mergedDiscoveredMap.set(p.path, p);
+    });
+
+    const updatedPageRules = {
+      ...currentPageRules,
+      discoveredPages: Array.from(mergedDiscoveredMap.values())
+    };
+
+    const updatedSettings = {
+      ...currentSettings,
+      pageRules: updatedPageRules
+    };
+
+    await prisma.site.update({
+      where: { apiKey: siteKey },
+      data: { widgetSettings: updatedSettings }
+    });
+
+    res.json({
+      success: true,
+      count: newDiscoveredPages.length,
+      pages: newDiscoveredPages,
+      issues: issues.length > 0 ? issues : undefined
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 4. Conversations API (Protected for Admin Dashboard)
 app.get('/api/v1/conversations', authMiddleware, async (req, res) => {
   try {
