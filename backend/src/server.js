@@ -200,6 +200,48 @@ app.post('/api/v1/sites', authMiddleware, async (req, res) => {
   }
 });
 
+// Protected: Update website name or domain/URL without losing data or changing siteKey
+const handleUpdateSite = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, domain } = req.body;
+
+    if (!name && !domain) {
+      return res.status(400).json({ error: 'At least name or domain must be provided.' });
+    }
+
+    const site = await prisma.site.findUnique({ where: { id } });
+    if (!site) {
+      return res.status(404).json({ error: 'Site not found.' });
+    }
+
+    // Verify ownership
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to update this website property.' });
+    }
+
+    const updatedData = {};
+    if (name && name.trim()) updatedData.name = name.trim();
+    if (domain && domain.trim()) updatedData.domain = domain.trim();
+
+    const updatedSite = await prisma.site.update({
+      where: { id },
+      data: updatedData
+    });
+
+    res.json({
+      success: true,
+      message: 'Website property updated successfully.',
+      site: updatedSite
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+app.patch('/api/v1/sites/:id', authMiddleware, handleUpdateSite);
+app.put('/api/v1/sites/:id', authMiddleware, handleUpdateSite);
+
 // Protected: Delete a Site and all its associated data (Requires Admin Password)
 app.delete('/api/v1/sites/:id', authMiddleware, async (req, res) => {
   try {

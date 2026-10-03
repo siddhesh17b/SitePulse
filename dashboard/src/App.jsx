@@ -130,6 +130,9 @@ export default function App() {
   });
   const [newSiteForm, setNewSiteForm] = useState({ name: '', domain: '' });
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [siteDetailsForm, setSiteDetailsForm] = useState({ name: '', domain: '' });
+  const [savingSiteDetails, setSavingSiteDetails] = useState(false);
+  const [siteDetailsMessage, setSiteDetailsMessage] = useState(null);
 
   // Widget Customizer State
   const [settings, setSettings] = useState({
@@ -535,6 +538,8 @@ export default function App() {
     if (activeSite.widgetSettings) {
       setSettings(activeSite.widgetSettings);
     }
+    setSiteDetailsForm({ name: activeSite.name || '', domain: activeSite.domain || '' });
+    setSiteDetailsMessage(null);
     setSelectedConv(null);
     setMessages([]);
     setIsVisitorTyping(false);
@@ -679,6 +684,44 @@ export default function App() {
     navigator.clipboard.writeText(code);
     setCopiedSnippet(true);
     setTimeout(() => setCopiedSnippet(false), 2000);
+  };
+
+  const handleUpdateSiteDetails = async (e) => {
+    e.preventDefault();
+    if (!activeSite || !token || savingSiteDetails) return;
+    if (!siteDetailsForm.name.trim() || !siteDetailsForm.domain.trim()) {
+      setSiteDetailsMessage({ type: 'error', text: 'Both property name and domain/URL are required.' });
+      return;
+    }
+
+    setSavingSiteDetails(true);
+    setSiteDetailsMessage(null);
+    try {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/sites/${activeSite.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: siteDetailsForm.name.trim(),
+          domain: siteDetailsForm.domain.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.site) {
+        setActiveSite(data.site);
+        setSites(prev => prev.map(s => s.id === data.site.id ? data.site : s));
+        setSiteDetailsMessage({ 
+          type: 'success', 
+          text: 'Website details & URL updated successfully! All past chats, messages, and analytics are preserved.' 
+        });
+        setTimeout(() => setSiteDetailsMessage(null), 4500);
+      } else {
+        setSiteDetailsMessage({ type: 'error', text: data.error || 'Failed to update website details.' });
+      }
+    } catch (err) {
+      setSiteDetailsMessage({ type: 'error', text: err.message || 'Network error updating website property.' });
+    } finally {
+      setSavingSiteDetails(false);
+    }
   };
 
   // Page Rules Handlers
@@ -1812,27 +1855,27 @@ export default function App() {
               {/* TAB: PAGE RULES & DISPLAY */}
               {activeNav === 'page-rules' && (
                 <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 max-w-5xl bg-slate-50">
-                  {/* 1. Header & Master Status */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+                  {/* 1. Global Widget Configuration */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                       <div>
                         <div className="flex items-center gap-2.5">
                           <h2 className="text-xl font-bold text-slate-900">Page Targeting & Display Rules</h2>
-                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-[#287170]/10 text-[#287170]">
+                          <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#287170]/10 text-[#287170]">
                             {activeSite.name}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-600 mt-1 font-medium">
+                        <p className="text-sm text-slate-500 mt-1 font-medium">
                           Control exactly which pages display the SitePulse widget across your website without editing code.
                         </p>
                       </div>
 
                       {/* Master Widget Switch */}
-                      <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 p-2 px-3.5 rounded-xl shrink-0">
+                      <div className="flex items-center gap-3.5 bg-slate-50 border border-slate-200 p-2.5 px-4 rounded-xl shrink-0">
                         <div className="text-right">
-                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Widget Status</div>
-                          <div className={`text-sm font-bold ${pageRules.enabled !== false ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {pageRules.enabled !== false ? 'Active Site-wide' : 'Disabled Site-wide'}
+                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Master Switch</div>
+                          <div className={`text-sm font-bold ${pageRules.enabled !== false ? 'text-emerald-700' : 'text-slate-500'}`}>
+                            {pageRules.enabled !== false ? 'Active Site-wide' : 'Disabled Everywhere'}
                           </div>
                         </div>
                         <button
@@ -1848,54 +1891,80 @@ export default function App() {
                     </div>
 
                     {/* 2. Default Policy Selector */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    <div className="space-y-2.5 pt-1">
                       <div>
-                        <label className="text-sm font-bold text-slate-800 block">Default Visibility for New / Unlisted Pages</label>
-                        <p className="text-xs text-slate-500 font-medium">When a visitor visits a page not explicitly listed in the table below</p>
+                        <label className="text-sm font-bold text-slate-900 block">Default Visibility for New / Unlisted Pages</label>
+                        <p className="text-xs sm:text-sm text-slate-500">Determine whether new or unlisted URLs automatically show or hide the widget.</p>
                       </div>
-                      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-                        <button
-                          type="button"
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                        {/* Option 1: Allow by default */}
+                        <div
                           onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'allow' }))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
                             pageRules.defaultPolicy !== 'block'
-                              ? 'bg-white text-slate-900 shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
+                              ? 'border-[#287170] bg-[#287170]/5 shadow-xs'
+                              : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                         >
-                          Show Widget (Default)
-                        </button>
-                        <button
-                          type="button"
+                          <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
+                            pageRules.defaultPolicy !== 'block' ? 'border-[#287170]' : 'border-slate-300'
+                          }`}>
+                            {pageRules.defaultPolicy !== 'block' && (
+                              <div className="w-2 h-2 rounded-full bg-[#287170]" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-slate-900">Show by Default (Recommended)</div>
+                            <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                              Widget appears on all pages unless you explicitly add a rule to hide it below.
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Option 2: Block by default */}
+                        <div
                           onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'block' }))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
                             pageRules.defaultPolicy === 'block'
-                              ? 'bg-white text-rose-700 shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
+                              ? 'border-rose-500 bg-rose-50/20 shadow-xs'
+                              : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                         >
-                          Hide Widget (Strict Whitelist)
-                        </button>
+                          <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
+                            pageRules.defaultPolicy === 'block' ? 'border-rose-500' : 'border-slate-300'
+                          }`}>
+                            {pageRules.defaultPolicy === 'block' && (
+                              <div className="w-2 h-2 rounded-full bg-rose-500" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-slate-900">Strict Whitelist (Hidden by Default)</div>
+                            <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                              Widget is hidden across your site and only appears on pages you explicitly allow.
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* 3. Discovered Pages Table & Scanner */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                    <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
+                    <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
                       <div>
                         <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                           <span>Discovered Pages & Paths</span>
-                          <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-xs bg-slate-200/80 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">
                             {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length} Found
                           </span>
                         </h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                           Auto-detected via website link crawler and real-time visitor traffic.
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         {/* Search Box */}
                         <div className="relative">
                           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
@@ -1904,7 +1973,7 @@ export default function App() {
                             placeholder="Filter paths..."
                             value={pageSearchQuery}
                             onChange={(e) => setPageSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#287170] w-40 sm:w-48 font-medium"
+                            className="bg-white border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#287170] w-44 sm:w-56 font-medium shadow-2xs"
                           />
                         </div>
 
@@ -1913,7 +1982,7 @@ export default function App() {
                           type="button"
                           onClick={handleScanWebsite}
                           disabled={scanningSite}
-                          className="px-3.5 py-1.5 bg-[#287170] hover:bg-[#205d5c] text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
+                          className="px-4 py-2 bg-[#287170] hover:bg-[#205d5c] text-white text-xs sm:text-sm font-semibold rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${scanningSite ? 'animate-spin' : ''}`} />
                           <span>{scanningSite ? 'Scanning...' : 'Scan Website'}</span>
@@ -1921,11 +1990,11 @@ export default function App() {
 
                         {/* Bulk Action Buttons */}
                         {discoveredPages.length > 1 && (
-                          <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2">
                             <button
                               type="button"
                               onClick={() => handleBulkSetRules(true)}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer"
+                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-medium rounded-xl transition cursor-pointer"
                               title="Show widget on all discovered pages"
                             >
                               Enable All
@@ -1933,7 +2002,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleBulkSetRules(false)}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer"
+                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-medium rounded-xl transition cursor-pointer"
                               title="Hide widget on all discovered pages"
                             >
                               Disable All
@@ -1945,13 +2014,13 @@ export default function App() {
 
                     {/* Scan Feedback Banner */}
                     {scanMessage && (
-                      <div className={`p-3 px-5 text-xs font-semibold flex items-center justify-between border-b ${
+                      <div className={`p-3 px-5 text-sm font-medium flex items-center justify-between border-b ${
                         scanMessage.type === 'success' 
                           ? 'bg-emerald-50 text-emerald-800 border-emerald-100' 
                           : 'bg-rose-50 text-rose-800 border-rose-100'
                       }`}>
                         <span>{scanMessage.text}</span>
-                        <button onClick={() => setScanMessage(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+                        <button onClick={() => setScanMessage(null)} className="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
                       </div>
                     )}
 
@@ -1960,17 +2029,17 @@ export default function App() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-slate-100 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            <th className="py-3 px-5">Path / Page</th>
-                            <th className="py-3 px-4">Discovery Source</th>
-                            <th className="py-3 px-4">Rule Mode</th>
-                            <th className="py-3 px-5 text-right">Widget Visibility</th>
+                            <th className="py-3.5 px-5">Path / Page</th>
+                            <th className="py-3.5 px-4">Discovery Source</th>
+                            <th className="py-3.5 px-4">Rule Mode</th>
+                            <th className="py-3.5 px-5 text-right">Widget Visibility</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-sm">
                           {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="py-8 text-center text-slate-500 text-sm">
-                                {pageSearchQuery ? 'No pages match your search.' : 'No pages discovered yet. Click "Scan Website" to crawl your domain.'}
+                              <td colSpan={4} className="py-12 text-center text-slate-500 text-sm">
+                                {pageSearchQuery ? 'No paths match your filter.' : 'No pages discovered yet. Click "Scan Website" to crawl your domain.'}
                               </td>
                             </tr>
                           ) : (
@@ -1985,55 +2054,55 @@ export default function App() {
 
                                 return (
                                   <tr key={path} className="hover:bg-slate-50/75 transition-colors">
-                                    <td className="py-3.5 px-5">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-mono text-sm font-semibold text-slate-900 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                    <td className="py-4 px-5">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-mono text-sm font-semibold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/80">
                                           {path}
                                         </span>
                                         {path === '/' && (
-                                          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
                                             Homepage
                                           </span>
                                         )}
                                         {item.views > 0 && (
-                                          <span className="text-[11px] text-slate-500 font-medium">
+                                          <span className="text-xs text-slate-500 font-medium">
                                             ({item.views} {item.views === 1 ? 'view' : 'views'})
                                           </span>
                                         )}
                                       </div>
                                     </td>
-                                    <td className="py-3.5 px-4">
+                                    <td className="py-4 px-4">
                                       {item.source === 'traffic' ? (
-                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-100">
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">
                                           📡 Real Traffic
                                         </span>
                                       ) : item.source === 'crawler' ? (
-                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
                                           🔍 Crawler Link
                                         </span>
                                       ) : item.source === 'custom_rule' ? (
-                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100">
                                           ⚙️ Custom Pattern
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full">
                                           🏠 Root
                                         </span>
                                       )}
                                     </td>
-                                    <td className="py-3.5 px-4 text-xs font-medium text-slate-500">
+                                    <td className="py-4 px-4 text-xs font-medium text-slate-500">
                                       {isExplicit ? (
-                                        <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">Custom Override</span>
+                                        <span className="font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md">Custom Override</span>
                                       ) : (
                                         <span className="text-slate-400">Default Policy</span>
                                       )}
                                     </td>
-                                    <td className="py-3.5 px-5 text-right">
+                                    <td className="py-4 px-5 text-right">
                                       <div className="flex items-center justify-end gap-2">
                                         <button
                                           type="button"
                                           onClick={() => handleTogglePageRule(path)}
-                                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
+                                          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition shadow-2xs cursor-pointer ${
                                             isAllowed
                                               ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
                                               : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
@@ -2041,12 +2110,12 @@ export default function App() {
                                         >
                                           {isAllowed ? (
                                             <>
-                                              <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                              <Eye className="w-4 h-4 text-emerald-600" />
                                               <span>Active (Visible)</span>
                                             </>
                                           ) : (
                                             <>
-                                              <EyeOff className="w-3.5 h-3.5 text-rose-600" />
+                                              <EyeOff className="w-4 h-4 text-rose-600" />
                                               <span>Hidden (Disabled)</span>
                                             </>
                                           )}
@@ -2058,7 +2127,7 @@ export default function App() {
                                             title={item.source === 'custom_rule' ? "Delete custom rule" : "Reset override to default"}
                                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition border border-transparent hover:border-rose-200 cursor-pointer"
                                           >
-                                            <Trash2 className="w-3.5 h-3.5" />
+                                            <Trash2 className="w-4 h-4" />
                                           </button>
                                         )}
                                       </div>
@@ -2075,12 +2144,12 @@ export default function App() {
                   {/* 4. Add Custom Wildcard / Pattern Rule */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-lg">
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-lg">
                         *
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-slate-900">Add Custom Path or Wildcard Pattern</h3>
-                        <p className="text-xs text-slate-500 font-medium">Pre-emptively hide or show the widget on paths (e.g. <code>/checkout/*</code>, <code>/admin/*</code>, or <code>/login</code>)</p>
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Pre-emptively show or hide the widget on specific paths or patterns.</p>
                       </div>
                     </div>
 
@@ -2091,13 +2160,13 @@ export default function App() {
                           placeholder="e.g. /checkout/* or /login or *.html"
                           value={customPatternInput}
                           onChange={(e) => setCustomPatternInput(e.target.value)}
-                          className="w-full font-mono text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] font-medium"
+                          className="w-full font-mono text-sm px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] font-medium"
                         />
                       </div>
                       <select
                         value={customPatternAction}
                         onChange={(e) => setCustomPatternAction(e.target.value)}
-                        className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#287170] cursor-pointer"
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#287170] cursor-pointer"
                       >
                         <option value="block">Hide Widget (Disabled)</option>
                         <option value="allow">Show Widget (Active)</option>
@@ -2110,12 +2179,28 @@ export default function App() {
                         <span>Add Pattern</span>
                       </button>
                     </form>
+
+                    {/* Quick suggestion chips */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500">
+                      <span className="font-semibold text-slate-600">Quick examples:</span>
+                      {['/checkout/*', '/admin/*', '/login', '/pricing', '*.html'].map((chip) => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => setCustomPatternInput(chip)}
+                          className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs cursor-pointer transition"
+                        >
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* 5. Save & Publish Bar */}
                   <div className="sticky bottom-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="text-xs text-slate-600 font-medium">
-                      Changes take effect in real-time across your visitors and single-page app navigations.
+                    <div className="text-xs sm:text-sm text-slate-600 font-medium flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#287170]" />
+                      <span>Changes take effect in real-time across your visitors and single-page app navigations.</span>
                     </div>
                     <button
                       type="button"
@@ -2142,36 +2227,90 @@ export default function App() {
               {/* TAB 5: PROPERTY SETTINGS & DANGER ZONE */}
               {activeNav === 'settings' && (
                 <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 max-w-4xl bg-slate-50">
-                  {/* Property Details Card */}
+                  {/* Property Details & Domain URL Configuration Card */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
                       <div className="w-10 h-10 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
                         <Globe className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900">Website Property</h3>
-                        <p className="text-sm text-slate-600 font-medium">Active domain identifiers and configuration</p>
+                        <h3 className="text-base font-bold text-slate-900">Website Property & Domain URL</h3>
+                        <p className="text-sm text-slate-500 font-medium">Update your website name and URL without losing any past chats or resetting your key</p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                          Property Name
-                        </label>
-                        <div className="text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl">
-                          {activeSite.name}
+                    <form onSubmit={handleUpdateSiteDetails} className="space-y-4 pt-1">
+                      {siteDetailsMessage && (
+                        <div className={`p-3.5 px-4 rounded-xl text-sm font-medium flex items-center justify-between border ${
+                          siteDetailsMessage.type === 'success'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-rose-50 text-rose-800 border-rose-200'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            {siteDetailsMessage.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                            <span>{siteDetailsMessage.text}</span>
+                          </div>
+                          <button type="button" onClick={() => setSiteDetailsMessage(null)} className="text-slate-400 hover:text-slate-600 text-sm font-bold ml-2">✕</button>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                            Website / Property Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={siteDetailsForm.name}
+                            onChange={(e) => setSiteDetailsForm(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="e.g. My Online Store"
+                            className="w-full text-sm font-semibold text-slate-900 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                            Registered Domain / Website URL
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={siteDetailsForm.domain}
+                            onChange={(e) => setSiteDetailsForm(prev => ({ ...prev, domain: e.target.value }))}
+                            placeholder="e.g. store.com or localhost:3000"
+                            className="w-full text-sm font-semibold text-slate-900 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
+                          />
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                          Registered Domain
-                        </label>
-                        <div className="text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl">
-                          {activeSite.domain}
+
+                      {/* Safe URL Update Explanation Callout */}
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex items-start gap-2.5">
+                        <span className="text-base select-none">🛡️</span>
+                        <div className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                          <strong className="text-slate-800">Zero Data Loss Guarantee:</strong> Changing your domain or switching from local development (<code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-xs">localhost:3000</code>) to production (<code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-xs">myapp.com</code>) will <strong>never</strong> erase your conversations, messages, feedback, or analytics. Your public Site Key and embed script remain unchanged.
                         </div>
                       </div>
-                    </div>
+
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="submit"
+                          disabled={savingSiteDetails}
+                          className="px-5 py-2.5 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          {savingSiteDetails ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>Updating URL...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-4 h-4" />
+                              <span>Update URL & Name</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
 
                   {/* Site Key Card */}
@@ -2244,32 +2383,32 @@ export default function App() {
                   </div>
 
                   {/* Danger Zone: Destructive Actions */}
-                  <div className="bg-white rounded-2xl border border-rose-200 shadow-xs p-6 space-y-5">
-                    <div className="flex items-center gap-3 pb-3 border-b border-rose-100">
-                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-5">
+                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
                         <Trash2 className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-rose-900">Danger Zone</h3>
-                        <p className="text-sm text-rose-600">Irreversible destructive actions for this website property</p>
+                        <h3 className="text-base font-bold text-slate-900">Danger Zone</h3>
+                        <p className="text-sm text-slate-500 font-medium">Irreversible actions for this website property</p>
                       </div>
                     </div>
 
                     {/* Action 1: Delete All Chats */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-rose-100 bg-rose-50/40">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
                       <div className="space-y-1">
-                        <h4 className="text-sm font-bold text-rose-950 flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                           <MessageSquareX className="w-4 h-4 text-rose-600" />
-                          <span>Delete All Chats</span>
+                          <span>Delete All Conversations</span>
                         </h4>
-                        <p className="text-sm text-slate-600 leading-relaxed max-w-xl">
-                          Permanently delete all active and resolved visitor conversations, messages, and chat sessions for <strong className="text-slate-900">{activeSite.name}</strong>. Feedback ratings, bug reports, and analytics will remain intact.
+                        <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
+                          Permanently clear all visitor conversation threads and messages for <strong className="text-slate-800">{activeSite.name}</strong>. Feedback ratings, bug reports, and analytics will remain completely intact.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => promptDeleteChats(activeSite)}
-                        className="self-start sm:self-center px-4 py-2.5 bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 hover:text-rose-800 font-semibold rounded-xl text-sm transition flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                        className="self-start sm:self-center px-4 py-2.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-700 hover:text-rose-700 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 shadow-2xs cursor-pointer"
                       >
                         <MessageSquareX className="w-4 h-4 text-rose-600" />
                         <span>Delete All Chats</span>
@@ -2277,20 +2416,20 @@ export default function App() {
                     </div>
 
                     {/* Action 2: Delete Entire Website Property */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-rose-100 bg-rose-50/40">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-rose-100 bg-rose-50/30">
                       <div className="space-y-1">
                         <h4 className="text-sm font-bold text-rose-950 flex items-center gap-2">
                           <Trash2 className="w-4 h-4 text-rose-600" />
                           <span>Delete Entire Website Property</span>
                         </h4>
-                        <p className="text-sm text-slate-600 leading-relaxed max-w-xl">
-                          Permanently delete <strong className="text-slate-900">{activeSite.name}</strong> ({activeSite.domain}) and all associated conversations, feedback, bugs, and analytics.
+                        <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
+                          Permanently delete <strong className="text-slate-800">{activeSite.name}</strong> ({activeSite.domain}) and all associated conversations, feedback, bugs, and analytics.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => promptDeleteSite(activeSite)}
-                        className="self-start sm:self-center px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
+                        className="self-start sm:self-center px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 shadow-xs cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                         <span>Delete Website</span>
