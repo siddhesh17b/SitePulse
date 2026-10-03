@@ -134,6 +134,12 @@ export default function App() {
   const [siteDetailsForm, setSiteDetailsForm] = useState({ name: '', domain: '' });
   const [savingSiteDetails, setSavingSiteDetails] = useState(false);
   const [siteDetailsMessage, setSiteDetailsMessage] = useState(null);
+  const [changeDomainModal, setChangeDomainModal] = useState({
+    open: false,
+    domain: '',
+    error: '',
+    loading: false
+  });
 
   // Widget Customizer State
   const [settings, setSettings] = useState({
@@ -687,11 +693,11 @@ export default function App() {
     setTimeout(() => setCopiedSnippet(false), 2000);
   };
 
-  const handleUpdateSiteDetails = async (e) => {
+  const handleUpdateSiteName = async (e) => {
     e.preventDefault();
     if (!activeSite || !token || savingSiteDetails) return;
-    if (!siteDetailsForm.name.trim() || !siteDetailsForm.domain.trim()) {
-      setSiteDetailsMessage({ type: 'error', text: 'Both property name and domain/URL are required.' });
+    if (!siteDetailsForm.name.trim()) {
+      setSiteDetailsMessage({ type: 'error', text: 'Website name cannot be empty.' });
       return;
     }
 
@@ -702,8 +708,7 @@ export default function App() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: siteDetailsForm.name.trim(),
-          domain: siteDetailsForm.domain.trim()
+          name: siteDetailsForm.name.trim()
         })
       });
       const data = await res.json();
@@ -712,16 +717,57 @@ export default function App() {
         setSites(prev => prev.map(s => s.id === data.site.id ? data.site : s));
         setSiteDetailsMessage({ 
           type: 'success', 
-          text: 'Website details & URL updated successfully! All past chats, messages, and analytics are preserved.' 
+          text: 'Website name updated successfully.' 
         });
-        setTimeout(() => setSiteDetailsMessage(null), 4500);
+        setTimeout(() => setSiteDetailsMessage(null), 4000);
       } else {
-        setSiteDetailsMessage({ type: 'error', text: data.error || 'Failed to update website details.' });
+        setSiteDetailsMessage({ type: 'error', text: data.error || 'Failed to update website name.' });
       }
     } catch (err) {
       setSiteDetailsMessage({ type: 'error', text: err.message || 'Network error updating website property.' });
     } finally {
       setSavingSiteDetails(false);
+    }
+  };
+
+  const promptChangeDomain = () => {
+    if (!activeSite) return;
+    setChangeDomainModal({
+      open: true,
+      domain: activeSite.domain,
+      error: '',
+      loading: false
+    });
+  };
+
+  const handleConfirmChangeDomain = async (e) => {
+    e.preventDefault();
+    if (!activeSite || !token || changeDomainModal.loading) return;
+    const newDomain = changeDomainModal.domain.trim();
+    if (!newDomain) {
+      setChangeDomainModal(prev => ({ ...prev, error: 'Domain URL cannot be empty.' }));
+      return;
+    }
+    setChangeDomainModal(prev => ({ ...prev, loading: true, error: '' }));
+    try {
+      const res = await authFetch(`${BACKEND_URL}/api/v1/sites/${activeSite.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: newDomain })
+      });
+      const data = await res.json();
+      if (res.ok && data.site) {
+        setActiveSite(data.site);
+        setSites(prev => prev.map(s => s.id === data.site.id ? data.site : s));
+        setSiteDetailsForm(prev => ({ ...prev, domain: data.site.domain }));
+        setChangeDomainModal({ open: false, domain: '', error: '', loading: false });
+        setSiteDetailsMessage({ type: 'success', text: 'Domain URL updated successfully in Danger Zone.' });
+        setTimeout(() => setSiteDetailsMessage(null), 4000);
+      } else {
+        setChangeDomainModal(prev => ({ ...prev, loading: false, error: data.error || 'Failed to update domain URL.' }));
+      }
+    } catch (err) {
+      setChangeDomainModal(prev => ({ ...prev, loading: false, error: err.message || 'Network error updating domain.' }));
     }
   };
 
@@ -1148,6 +1194,7 @@ export default function App() {
                 setActiveNav('chat');
                 setMobileMenuOpen(false);
               }}
+              title="Real-time visitor chat threads and operator replies"
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'chat'
                   ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
@@ -1175,6 +1222,7 @@ export default function App() {
                 setActiveNav('customizer');
                 setMobileMenuOpen(false);
               }}
+              title="Customize widget styling, colors, and branding"
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'customizer'
                   ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
@@ -1191,6 +1239,7 @@ export default function App() {
                 setActiveNav('page-rules');
                 setMobileMenuOpen(false);
               }}
+              title="Target widget display by path or wildcard patterns"
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'page-rules'
                   ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
@@ -1201,12 +1250,13 @@ export default function App() {
               <span>Page Rules & Display</span>
             </button>
 
-            {/* 3. Feedback & Bugs */}
+            {/* 4. Feedback & Bugs */}
             <button
               onClick={() => {
                 setActiveNav('feedback');
                 setMobileMenuOpen(false);
               }}
+              title="Customer ratings and bug reports with diagnostics"
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'feedback'
                   ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
@@ -1217,12 +1267,13 @@ export default function App() {
               <span>Feedback & Bugs</span>
             </button>
 
-            {/* 4. Analytics */}
+            {/* 5. Analytics */}
             <button
               onClick={() => {
                 setActiveNav('analytics');
                 setMobileMenuOpen(false);
               }}
+              title="Privacy-friendly traffic and pageview metrics"
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'analytics'
                   ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
@@ -1233,12 +1284,13 @@ export default function App() {
               <span>Analytics</span>
             </button>
 
-            {/* 5. Settings & Danger Zone */}
+            {/* 6. Settings */}
             <button
               onClick={() => {
                 setActiveNav('settings');
                 setMobileMenuOpen(false);
               }}
+              title="Website settings, embed code, and dangerous actions"
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                 activeNav === 'settings'
                   ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
@@ -1300,6 +1352,7 @@ export default function App() {
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
               {activeNav === 'chat' && 'Live Support Inbox'}
               {activeNav === 'customizer' && 'Widget Customization & Styling'}
+              {activeNav === 'page-rules' && 'Page Rules & Display'}
               {activeNav === 'feedback' && 'Customer Feedback & Bug Reports'}
               {activeNav === 'analytics' && 'Website Analytics'}
               {activeNav === 'settings' && 'Website Property Settings'}
@@ -1307,10 +1360,13 @@ export default function App() {
           </div>
           {activeSite && (
             <div className="flex items-center gap-2 shrink-0">
-              <span className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-50 text-slate-700 border border-slate-200">
+              <span 
+                className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-slate-50 text-slate-700 border border-slate-200"
+                title={`Active website: ${activeSite.name} (${activeSite.domain})`}
+              >
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <span>{activeSite.name}</span>
-                <span className="text-slate-600 text-xs font-medium">({activeSite.domain})</span>
+                <span className="text-slate-500 text-xs font-mono">({activeSite.domain})</span>
               </span>
             </div>
           )}
@@ -1342,10 +1398,14 @@ export default function App() {
                 <div className="flex h-full min-w-0">
                   <div className={`w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex flex-col shrink-0 ${mobileChatView ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Conversations ({filteredConversations.length})
                       </span>
-                      <button onClick={fetchConversations} className="text-sm text-[#287170] hover:text-[#205d5c] font-semibold transition cursor-pointer">
+                      <button 
+                        onClick={fetchConversations} 
+                        className="text-xs sm:text-sm text-[#287170] hover:text-[#205d5c] font-semibold transition cursor-pointer"
+                        title="Fetch latest conversations and messages"
+                      >
                         Refresh
                       </button>
                     </div>
@@ -1360,30 +1420,35 @@ export default function App() {
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="w-full bg-slate-50 text-sm pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:bg-white focus:border-[#287170] font-medium placeholder-slate-400"
+                          title="Search conversations by email, visitor ID, or message text"
                         />
                       </div>
                       <div className="flex gap-1.5 text-xs overflow-x-auto pb-0.5">
                         <button
                           onClick={() => setStatusFilter('all')}
                           className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'all' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          title="Show all conversations"
                         >
                           All ({conversations.length})
                         </button>
                         <button
                           onClick={() => setStatusFilter('unread')}
                           className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'unread' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          title="Show conversations with unread visitor messages"
                         >
                           Unread ({conversations.filter(c => (unreadCounts[c.id] || 0) > 0).length})
                         </button>
                         <button
                           onClick={() => setStatusFilter('open')}
                           className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'open' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          title="Show open conversations"
                         >
                           Open ({conversations.filter(c => c.status !== 'resolved').length})
                         </button>
                         <button
                           onClick={() => setStatusFilter('resolved')}
                           className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'resolved' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                          title="Show resolved conversations"
                         >
                           Resolved ({conversations.filter(c => c.status === 'resolved').length})
                         </button>
@@ -1392,7 +1457,7 @@ export default function App() {
 
                     <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
                       {filteredConversations.length === 0 ? (
-                        <div className="p-8 text-center text-slate-600 text-sm font-medium">
+                        <div className="p-8 text-center text-slate-500 text-sm font-medium">
                           {searchQuery ? 'No conversations matching search.' : 'No conversations found in this view.'}
                         </div>
                       ) : (
@@ -1409,23 +1474,24 @@ export default function App() {
                               className={`p-4 cursor-pointer transition ${
                                 isSelected ? 'bg-[#287170]/5 border-l-4 border-[#287170]' : 'hover:bg-slate-50 border-l-4 border-transparent'
                               }`}
+                              title={conv.visitorEmail ? `Email: ${conv.visitorEmail}` : `Visitor #${conv.visitorId.slice(-6)}`}
                             >
                               <div className="flex justify-between items-start gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   {unreadCount > 0 && (
                                     <span className="w-2 h-2 rounded-full bg-[#287170] shrink-0" />
                                   )}
-                                  <span className={`text-base truncate ${unreadCount > 0 ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
+                                  <span className={`text-sm truncate ${unreadCount > 0 ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
                                     {conv.visitorName || conv.visitorEmail || `Visitor #${conv.visitorId.slice(-6)}`}
                                   </span>
                                 </div>
-                                <span className="text-xs text-slate-600 font-medium shrink-0">
+                                <span className="text-xs text-slate-400 font-medium shrink-0">
                                   {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </div>
                               {conv.visitorEmail && (
-                                <div className="text-xs sm:text-sm text-[#287170] font-medium truncate mt-1 flex items-center gap-1.5">
-                                  <Mail className="w-3.5 h-3.5 text-[#287170] shrink-0" />
+                                <div className="text-xs text-[#287170] font-medium truncate mt-0.5 flex items-center gap-1.5">
+                                  <Mail className="w-3 h-3 text-[#287170] shrink-0" />
                                   <span className="truncate">{conv.visitorEmail}</span>
                                 </div>
                               )}
@@ -1440,11 +1506,14 @@ export default function App() {
                                     Identified: #{conv.externalId}
                                   </span>
                                 )}
-                                <span className={`text-xs px-2 py-0.5 rounded-md font-semibold ${isResolved ? 'bg-slate-100 text-slate-600' : 'bg-[#287170]/10 text-[#287170]'}`}>
+                                <span 
+                                  className={`text-xs px-2 py-0.5 rounded-md font-semibold ${isResolved ? 'bg-slate-100 text-slate-600' : 'bg-[#287170]/10 text-[#287170]'}`}
+                                  title={isResolved ? "Conversation is marked resolved" : "Conversation is active"}
+                                >
                                   {isResolved ? 'Resolved' : 'Open'}
                                 </span>
                               </div>
-                              <p className={`text-sm mt-1.5 truncate leading-normal ${unreadCount > 0 ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>{lastMsg}</p>
+                              <p className={`text-xs mt-1.5 truncate leading-normal ${unreadCount > 0 ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{lastMsg}</p>
                             </div>
                           );
                         })
@@ -1463,33 +1532,34 @@ export default function App() {
                           >
                             <ChevronLeft className="w-5 h-5" />
                           </button>
-                          <span className="font-bold text-base sm:text-lg text-slate-900 truncate">
+                          <span className="font-bold text-base text-slate-900 truncate">
                             {selectedConv.visitorName || 'Visitor'}
                           </span>
                           {selectedConv.visitorEmail && (
-                            <span className="text-xs sm:text-sm font-mono text-[#287170] bg-[#287170]/10 px-2.5 py-1 rounded-full border border-[#287170]/25 hidden sm:flex items-center gap-1.5">
+                            <span className="text-xs font-mono text-[#287170] bg-[#287170]/10 px-2.5 py-0.5 rounded-full border border-[#287170]/25 hidden sm:flex items-center gap-1.5" title={`Visitor Email: ${selectedConv.visitorEmail}`}>
                               <Mail className="w-3.5 h-3.5" />
                               <span className="truncate">{selectedConv.visitorEmail}</span>
                             </span>
                           )}
                           {selectedConv.externalId && (
-                            <span className="text-xs sm:text-sm font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 hidden sm:inline">
+                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 hidden sm:inline" title="Authenticated User ID">
                               ✓ #{selectedConv.externalId}
                             </span>
                           )}
-                          <span className="text-xs text-slate-600 font-mono hidden xl:inline">
-                            (Session: {selectedConv.visitorId.slice(0, 8)}...)
+                          <span className="text-xs text-slate-400 font-mono hidden xl:inline" title={`Visitor Session ID: ${selectedConv.visitorId}`}>
+                            ({selectedConv.visitorId.slice(0, 8)}...)
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={handleToggleStatus}
-                            className={`text-sm px-3.5 sm:px-4 py-1.5 rounded-xl font-semibold transition flex items-center gap-2 shrink-0 cursor-pointer ${
+                            className={`text-xs sm:text-sm px-3.5 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
                               selectedConv.status === 'resolved'
                                 ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
                                 : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                             }`}
+                            title={selectedConv.status === 'resolved' ? "Reopen this conversation" : "Mark conversation as resolved"}
                           >
                             <CheckCircle2 className="w-4 h-4" />
                             <span>{selectedConv.status === 'resolved' ? 'Reopen' : 'Mark Resolved'}</span>
@@ -1503,7 +1573,7 @@ export default function App() {
                           return (
                             <div key={m.id} className={`flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
                               <div
-                                className={`max-w-[85%] sm:max-w-[70%] px-4 py-3 rounded-2xl text-base leading-relaxed ${
+                                className={`max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                                   isAgent
                                     ? 'bg-[#287170] text-white rounded-br-sm shadow-sm'
                                     : 'bg-white text-slate-900 border border-slate-200 rounded-bl-sm shadow-xs'
@@ -1569,32 +1639,35 @@ export default function App() {
                 <div className="flex flex-col lg:flex-row h-full overflow-y-auto lg:overflow-hidden min-w-0">
                   <div className="w-full lg:w-[440px] xl:w-[480px] border-b lg:border-b-0 lg:border-r border-slate-200 bg-white p-6 sm:p-8 overflow-y-visible lg:overflow-y-auto space-y-7 shrink-0">
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900">Brand Color</h3>
+                      <h3 className="text-base font-bold text-slate-900">Brand Color</h3>
                       <div className="mt-3 flex items-center gap-3">
                         <input
                           type="color"
                           value={settings.primaryColor}
                           onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
                           className="w-11 h-11 p-0 rounded-xl cursor-pointer border border-slate-200"
+                          title="Select primary brand accent color"
                         />
                         <input
                           type="text"
                           value={settings.primaryColor}
                           onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="font-mono text-base px-3.5 py-2 border border-slate-200 rounded-xl w-32 text-slate-800 font-medium"
+                          className="font-mono text-sm px-3.5 py-2.5 border border-slate-200 rounded-xl w-32 text-slate-800 font-medium focus:outline-none focus:border-[#287170]"
+                          title="Hex color code"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <h3 className="text-lg font-bold text-slate-900">Titles & Greetings</h3>
+                      <h3 className="text-base font-bold text-slate-900">Titles & Greetings</h3>
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Widget Title</label>
                         <input
                           type="text"
                           value={settings.title}
                           onChange={(e) => setSettings({ ...settings, title: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
+                          title="Main header title displayed inside the widget"
                         />
                       </div>
                       <div>
@@ -1603,7 +1676,8 @@ export default function App() {
                           type="text"
                           value={settings.subtitle}
                           onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
+                          title="Secondary subtitle text in the widget header"
                         />
                       </div>
                       <div>
@@ -1612,48 +1686,50 @@ export default function App() {
                           value={settings.greeting}
                           onChange={(e) => setSettings({ ...settings, greeting: e.target.value })}
                           rows={3}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
+                          title="Initial welcome message displayed to visitors opening chat"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-3.5">
-                      <h3 className="text-lg font-bold text-slate-900">Features</h3>
-                      <label className="flex items-center gap-3 cursor-pointer">
+                      <h3 className="text-base font-bold text-slate-900">Features</h3>
+                      <label className="flex items-center gap-3 cursor-pointer" title="Enable real-time messaging between visitors and operators">
                         <input
                           type="checkbox"
                           checked={settings.enableChat}
                           onChange={(e) => setSettings({ ...settings, enableChat: e.target.checked })}
-                          className="w-5 h-5 accent-[#287170] rounded cursor-pointer"
+                          className="w-4 h-4 accent-[#287170] rounded cursor-pointer"
                         />
-                        <span className="text-base text-slate-800 font-medium">Enable Live Chat</span>
+                        <span className="text-sm font-medium text-slate-800">Enable Live Chat</span>
                       </label>
-                      <label className="flex items-center gap-3 cursor-pointer">
+                      <label className="flex items-center gap-3 cursor-pointer" title="Allow visitors to submit 1-to-5 star feedback ratings">
                         <input
                           type="checkbox"
                           checked={settings.enableFeedback}
                           onChange={(e) => setSettings({ ...settings, enableFeedback: e.target.checked })}
-                          className="w-5 h-5 accent-[#287170] rounded cursor-pointer"
+                          className="w-4 h-4 accent-[#287170] rounded cursor-pointer"
                         />
-                        <span className="text-base text-slate-800 font-medium">Enable Feedback Rating</span>
+                        <span className="text-sm font-medium text-slate-800">Enable Feedback Rating</span>
                       </label>
-                      <label className="flex items-center gap-3 cursor-pointer">
+                      <label className="flex items-center gap-3 cursor-pointer" title="Allow visitors to submit bug reports with client runtime diagnostics">
                         <input
                           type="checkbox"
                           checked={settings.enableBugReport}
                           onChange={(e) => setSettings({ ...settings, enableBugReport: e.target.checked })}
-                          className="w-5 h-5 accent-[#287170] rounded cursor-pointer"
+                          className="w-4 h-4 accent-[#287170] rounded cursor-pointer"
                         />
-                        <span className="text-base text-slate-800 font-medium">Enable Bug Reporting</span>
+                        <span className="text-sm font-medium text-slate-800">Enable Bug Reporting</span>
                       </label>
                     </div>
 
                     <button
                       onClick={handleSaveSettings}
                       disabled={savingSettings}
-                      className="w-full bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-3 rounded-xl text-base shadow-sm shadow-[#287170]/25 transition flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-2.5 rounded-xl text-sm shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      title="Save widget branding, titles, and feature configuration"
                     >
-                      <Check className="w-5 h-5" />
+                      <Check className="w-4 h-4" />
                       <span>{savingSettings ? 'Saving...' : (saveSuccess ? 'Changes Saved' : 'Save Changes')}</span>
                     </button>
                   </div>
@@ -1756,25 +1832,25 @@ export default function App() {
               {activeNav === 'feedback' && (
                 <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-8 bg-slate-50">
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2.5">
-                      <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+                    <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2.5">
+                      <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
                       <span>Customer Ratings & Reviews</span>
                     </h3>
                     {feedbacks.length === 0 ? (
-                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-600 text-base font-medium">
+                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500 text-sm font-medium">
                         No feedback received yet.
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         {feedbacks.map((f) => (
-                          <div key={f.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-                            <div className="flex items-center gap-1 text-amber-500">
+                          <div key={f.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+                            <div className="flex items-center gap-1 text-amber-500" title={`Rating: ${f.rating} of 5 stars`}>
                               {[...Array(f.rating)].map((_, i) => (
-                                <Star key={i} className="w-5 h-5 fill-amber-500" />
+                                <Star key={i} className="w-4 h-4 fill-amber-500" />
                               ))}
                             </div>
-                            <p className="text-base text-slate-900 mt-2 font-medium leading-relaxed">"{f.comment}"</p>
-                            <div className="text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100 flex justify-between font-medium">
+                            <p className="text-sm text-slate-900 mt-2 font-medium leading-relaxed">"{f.comment}"</p>
+                            <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100 flex justify-between font-medium">
                               <span>{f.userEmail || 'Anonymous'}</span>
                               <span>{new Date(f.createdAt).toLocaleDateString()}</span>
                             </div>
@@ -1785,26 +1861,32 @@ export default function App() {
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2.5">
-                      <Bug className="w-6 h-6 text-rose-500" />
+                    <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2.5">
+                      <Bug className="w-5 h-5 text-rose-500" />
                       <span>Reported Issues</span>
                     </h3>
                     {bugs.length === 0 ? (
-                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-600 text-base font-medium">
+                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500 text-sm font-medium">
                         No bugs reported yet.
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {bugs.map((b) => (
-                          <div key={b.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+                          <div key={b.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
                             <div className="flex justify-between items-start">
-                              <h4 className="font-bold text-base text-slate-900">{b.title}</h4>
-                              <span className="text-xs bg-rose-50 text-rose-600 px-3 py-1 rounded-full font-bold uppercase tracking-wider">
+                              <h4 className="font-bold text-sm text-slate-900">{b.title}</h4>
+                              <span 
+                                className="text-xs bg-rose-50 text-rose-600 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-rose-100"
+                                title={`Status: ${b.status}`}
+                              >
                                 {b.status}
                               </span>
                             </div>
-                            <p className="text-base text-slate-700 leading-relaxed">{b.description}</p>
-                            <div className="mt-3 bg-slate-50 p-3.5 rounded-xl text-sm font-mono text-slate-600 space-y-1">
+                            <p className="text-sm text-slate-700 leading-relaxed">{b.description}</p>
+                            <div 
+                              className="mt-3 bg-slate-50 p-3 rounded-xl text-xs font-mono text-slate-600 space-y-1 border border-slate-100"
+                              title="Client runtime environment diagnostics"
+                            >
                               <div><strong>URL:</strong> {b.url || 'N/A'}</div>
                               <div><strong>Device:</strong> {b.device || 'N/A'}</div>
                               <div className="truncate"><strong>User-Agent:</strong> {b.browser || 'N/A'}</div>
@@ -1821,31 +1903,37 @@ export default function App() {
               {activeNav === 'analytics' && (
                 <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 bg-slate-50">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
-                      <span className="text-sm font-bold text-slate-700 uppercase tracking-wider">Total Pageviews</span>
-                      <div className="text-4xl font-extrabold text-slate-900 mt-2">{analytics.totalPageviews}</div>
-                      <p className="text-sm text-slate-600 mt-1.5 font-medium">Total pageview events recorded</p>
+                    <div 
+                      className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs"
+                      title="Total recorded pageview tracking events across all pages"
+                    >
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Pageviews</span>
+                      <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-2">{analytics.totalPageviews}</div>
+                      <p className="text-xs text-slate-500 mt-1.5 font-medium">Total pageview events recorded</p>
                     </div>
-                    <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
-                      <span className="text-sm font-bold text-slate-700 uppercase tracking-wider">Unique Daily Visitors</span>
-                      <div className="text-4xl font-extrabold text-[#287170] mt-2">{analytics.uniqueVisitors}</div>
-                      <p className="text-sm text-slate-600 mt-1.5 font-medium">Daily unique visitor count</p>
+                    <div 
+                      className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs"
+                      title="Unique daily visitors identified using cookieless privacy-first hashes"
+                    >
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unique Daily Visitors</span>
+                      <div className="text-3xl sm:text-4xl font-extrabold text-[#287170] mt-2">{analytics.uniqueVisitors}</div>
+                      <p className="text-xs text-slate-500 mt-1.5 font-medium">Daily unique visitor count</p>
                     </div>
                   </div>
 
                   <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
-                    <h4 className="text-lg font-bold text-slate-900 mb-4">Top Visited Pages</h4>
+                    <h4 className="text-base font-bold text-slate-900 mb-4">Top Visited Pages</h4>
                     {analytics.topPages && analytics.topPages.length > 0 ? (
                       <div className="divide-y divide-slate-100">
                         {analytics.topPages.map((p, idx) => (
-                          <div key={idx} className="py-3 flex justify-between items-center">
+                          <div key={idx} className="py-3 flex justify-between items-center" title={`${p.count} views recorded on ${p.path}`}>
                             <span className="font-mono text-slate-800 text-sm font-medium">{p.path}</span>
-                            <span className="font-bold text-slate-900 text-base">{p.count} views</span>
+                            <span className="font-semibold text-slate-900 text-sm">{p.count} views</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-base text-slate-600 text-center py-8 font-medium">
+                      <div className="text-sm text-slate-500 text-center py-8 font-medium">
                         No analytics events recorded yet.
                       </div>
                     )}
@@ -2231,7 +2319,7 @@ export default function App() {
               {/* TAB 5: PROPERTY SETTINGS & DANGER ZONE */}
               {activeNav === 'settings' && (
                 <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 max-w-4xl bg-slate-50">
-                  {/* Property Details & Domain URL Configuration Card */}
+                  {/* Property Details (Name only, Domain moved to Danger Zone) */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
                       <div className="w-9 h-9 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
@@ -2241,14 +2329,14 @@ export default function App() {
                         <h3 className="text-base font-bold text-slate-900">Website Details</h3>
                         <span 
                           className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Update your website name and URL without losing chat data or resetting your API key"
+                          title="Manage your website display name"
                         >
                           <HelpCircle className="w-4 h-4" />
                         </span>
                       </div>
                     </div>
 
-                    <form onSubmit={handleUpdateSiteDetails} className="space-y-4 pt-1">
+                    <form onSubmit={handleUpdateSiteName} className="space-y-4 pt-1">
                       {siteDetailsMessage && (
                         <div className={`p-3 px-4 rounded-xl text-sm font-medium flex items-center justify-between border ${
                           siteDetailsMessage.type === 'success'
@@ -2274,21 +2362,46 @@ export default function App() {
                             value={siteDetailsForm.name}
                             onChange={(e) => setSiteDetailsForm(prev => ({ ...prev, name: e.target.value }))}
                             placeholder="e.g. My Online Store"
-                            className="w-full text-sm font-semibold text-slate-900 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
+                            className="w-full text-sm font-medium text-slate-900 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
+                            title="The display name of your website property"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                            Domain / URL
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={siteDetailsForm.domain}
-                            onChange={(e) => setSiteDetailsForm(prev => ({ ...prev, domain: e.target.value }))}
-                            placeholder="e.g. store.com or localhost:3000"
-                            className="w-full text-sm font-semibold text-slate-900 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
-                          />
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-sm font-semibold text-slate-700">
+                              Registered Domain
+                            </label>
+                            <span 
+                              className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200"
+                              title="Domain URL modifications are managed in the Danger Zone"
+                            >
+                              Protected
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              readOnly
+                              value={activeSite.domain}
+                              className="w-full text-sm font-mono font-medium text-slate-600 bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl cursor-not-allowed select-all"
+                              title="To modify this domain URL, use the Change Domain action in the Danger Zone below"
+                            />
+                            <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
+                            <span>To change this domain, use</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const el = document.getElementById('danger-zone-section');
+                                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                              }}
+                              className="text-[#287170] hover:underline font-semibold cursor-pointer"
+                              title="Scroll to Danger Zone"
+                            >
+                              Danger Zone below ↓
+                            </button>
+                          </p>
                         </div>
                       </div>
 
@@ -2297,16 +2410,17 @@ export default function App() {
                           type="submit"
                           disabled={savingSiteDetails}
                           className="px-5 py-2.5 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                          title="Save updated website name"
                         >
                           {savingSiteDetails ? (
                             <>
                               <RefreshCw className="w-4 h-4 animate-spin" />
-                              <span>Updating...</span>
+                              <span>Saving...</span>
                             </>
                           ) : (
                             <>
                               <Check className="w-4 h-4" />
-                              <span>Save Details</span>
+                              <span>Save Name</span>
                             </>
                           )}
                         </button>
@@ -2337,10 +2451,12 @@ export default function App() {
                         readOnly
                         value={activeSite.apiKey}
                         className="flex-1 bg-slate-50 border border-slate-200 font-mono text-sm px-3.5 py-2.5 rounded-xl text-slate-900 font-semibold select-all"
+                        title="Your public site key"
                       />
                       <button
                         onClick={copyEmbedCode}
                         className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                        title="Copy public API key to clipboard"
                       >
                         {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#287170]" />}
                         <span>{copiedSnippet ? 'Copied' : 'Copy'}</span>
@@ -2372,6 +2488,7 @@ export default function App() {
                       <button
                         onClick={copyEmbedCode}
                         className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-slate-200 shadow-xs cursor-pointer"
+                        title="Copy HTML embed script tag"
                       >
                         {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#287170]" />}
                         <span>{copiedSnippet ? 'Copied' : 'Copy Code'}</span>
@@ -2387,48 +2504,77 @@ export default function App() {
                         type="button"
                         onClick={() => setActiveNav('page-rules')}
                         className="text-[#287170] hover:text-[#205d5c] font-bold flex items-center gap-1 cursor-pointer"
+                        title="Open Page Rules & Display settings"
                       >
                         <span>Page Rules →</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Danger Zone: Destructive Actions */}
-                  <div className="bg-white rounded-2xl border border-rose-200 shadow-xs overflow-hidden">
+                  {/* Danger Zone: Sensitive & Destructive Actions */}
+                  <div id="danger-zone-section" className="bg-white rounded-2xl border border-rose-200 shadow-xs overflow-hidden">
                     <div className="p-5 border-b border-rose-100 bg-rose-50/40 flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <AlertTriangle className="w-5 h-5 text-rose-600" />
                         <h3 className="text-base font-bold text-slate-900">Danger Zone</h3>
                       </div>
-                      <span className="text-xs font-semibold text-rose-700 bg-rose-100/80 px-2.5 py-0.5 rounded-full">
-                        Irreversible
+                      <span 
+                        className="text-xs font-semibold text-rose-700 bg-rose-100/80 px-2.5 py-0.5 rounded-full"
+                        title="Actions in this section can alter domain origin security or permanently erase data"
+                      >
+                        Sensitive & Irreversible
                       </span>
                     </div>
 
                     <div className="divide-y divide-slate-100">
-                      {/* Action 1: Delete All Chats */}
+                      {/* Action 1: Change Domain URL */}
+                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-amber-50/20">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-semibold text-slate-900">Change Domain URL</h4>
+                            <span className="text-xs font-mono font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              {activeSite.domain}
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                            Update the authorized domain for this site. The embed widget will validate and run on the new domain.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={promptChangeDomain}
+                          className="px-4 py-2 border border-amber-300 hover:border-amber-400 bg-white hover:bg-amber-50 text-amber-900 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 cursor-pointer shadow-2xs"
+                          title="Change the registered domain for this website property"
+                        >
+                          <Globe className="w-4 h-4 text-amber-700" />
+                          <span>Change Domain</span>
+                        </button>
+                      </div>
+
+                      {/* Action 2: Delete All Chats */}
                       <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                           <h4 className="text-sm font-semibold text-slate-900">Clear Conversations</h4>
-                          <p className="text-sm text-slate-500 mt-0.5">
+                          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                             Permanently clear all visitor conversation threads and messages for this site. Feedback and analytics remain intact.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => promptDeleteChats(activeSite)}
-                          className="px-4 py-2 border border-slate-300 hover:border-rose-300 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 cursor-pointer"
+                          className="px-4 py-2 border border-slate-300 hover:border-rose-300 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 cursor-pointer shadow-2xs"
+                          title="Permanently remove all visitor messages and chat sessions"
                         >
                           <MessageSquareX className="w-4 h-4 text-rose-500" />
                           <span>Clear Chats</span>
                         </button>
                       </div>
 
-                      {/* Action 2: Delete Entire Website Property */}
-                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-rose-50/20">
+                      {/* Action 3: Delete Entire Website Property */}
+                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-rose-50/25">
                         <div>
                           <h4 className="text-sm font-semibold text-rose-950">Delete Website Property</h4>
-                          <p className="text-sm text-slate-500 mt-0.5">
+                          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                             Permanently delete <strong className="text-slate-800">{activeSite.name}</strong> ({activeSite.domain}) and all associated data, settings, and metrics.
                           </p>
                         </div>
@@ -2436,6 +2582,7 @@ export default function App() {
                           type="button"
                           onClick={() => promptDeleteSite(activeSite)}
                           className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 shadow-xs cursor-pointer"
+                          title="Permanently erase this website and all associated records"
                         >
                           <Trash2 className="w-4 h-4" />
                           <span>Delete Website</span>
@@ -2450,14 +2597,90 @@ export default function App() {
         </div>
       </main>
 
+      {/* Change Domain URL Modal (Danger Zone Action) */}
+      {changeDomainModal.open && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 w-full max-w-md p-6 sm:p-7 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Change Domain URL</h3>
+                <p className="text-xs text-slate-500 font-medium">Danger Zone: Update website authorization domain</p>
+              </div>
+            </div>
+
+            {changeDomainModal.error && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
+                {changeDomainModal.error}
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmChangeDomain} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                  Current Domain
+                </label>
+                <div className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-mono text-slate-700">
+                  {activeSite?.domain}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                  New Domain / URL
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. store.com or localhost:3000"
+                  value={changeDomainModal.domain}
+                  onChange={(e) => setChangeDomainModal(prev => ({ ...prev, domain: e.target.value }))}
+                  className="w-full text-sm font-mono font-medium px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setChangeDomainModal({ open: false, domain: '', error: '', loading: false })}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={changeDomainModal.loading}
+                  className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {changeDomainModal.loading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Update Domain</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* New Site Modal */}
       {showNewSiteModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-7">
-            <h3 className="text-xl font-bold text-slate-900">Add New Website</h3>
-            <p className="text-sm text-slate-600 mt-1 font-medium">Register a domain to generate an embed key.</p>
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 sm:p-7">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900">Add New Website</h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">Register a domain to generate an embed key.</p>
 
-            <form onSubmit={handleCreateSite} className="mt-6 space-y-4">
+            <form onSubmit={handleCreateSite} className="mt-5 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Website Name</label>
                 <input
@@ -2466,7 +2689,7 @@ export default function App() {
                   placeholder="e.g. My Online Store"
                   value={newSiteForm.name}
                   onChange={(e) => setNewSiteForm({ ...newSiteForm, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
                 />
               </div>
               <div>
@@ -2474,24 +2697,24 @@ export default function App() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. store.com"
+                  placeholder="e.g. store.com or localhost:3000"
                   value={newSiteForm.domain}
                   onChange={(e) => setNewSiteForm({ ...newSiteForm, domain: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-base text-slate-900 focus:outline-none focus:border-[#287170]"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowNewSiteModal(false)}
-                  className="px-5 py-2.5 text-base font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 text-base font-semibold bg-[#287170] hover:bg-[#205d5c] text-white rounded-xl shadow-sm shadow-[#287170]/25 transition cursor-pointer"
+                  className="px-4 py-2 text-sm font-semibold bg-[#287170] hover:bg-[#205d5c] text-white rounded-xl shadow-xs transition cursor-pointer"
                 >
                   Add Website
                 </button>
