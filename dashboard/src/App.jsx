@@ -9,7 +9,6 @@ import {
   Send, 
   Copy, 
   Check, 
-  Sparkles, 
   Star, 
   LogOut, 
   Plus, 
@@ -30,7 +29,9 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  HelpCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -1652,8 +1653,8 @@ export default function App() {
                       disabled={savingSettings}
                       className="w-full bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-3 rounded-xl text-base shadow-sm shadow-[#287170]/25 transition flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      {saveSuccess ? <Check className="w-5 h-5 text-emerald-300" /> : <Sparkles className="w-5 h-5" />}
-                      <span>{savingSettings ? 'Saving...' : (saveSuccess ? 'Changes Published Live!' : 'Save & Publish Changes')}</span>
+                      <Check className="w-5 h-5" />
+                      <span>{savingSettings ? 'Saving...' : (saveSuccess ? 'Changes Saved' : 'Save Changes')}</span>
                     </button>
                   </div>
 
@@ -1858,93 +1859,77 @@ export default function App() {
                   {/* 1. Global Widget Configuration */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                      <div>
-                        <div className="flex items-center gap-2.5">
-                          <h2 className="text-xl font-bold text-slate-900">Page Targeting & Display Rules</h2>
-                          <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#287170]/10 text-[#287170]">
-                            {activeSite.name}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-500 mt-1 font-medium">
-                          Control exactly which pages display the SitePulse widget across your website without editing code.
-                        </p>
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-xl font-bold text-slate-900">Page Targeting</h2>
+                        <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#287170]/10 text-[#287170]">
+                          {activeSite.name}
+                        </span>
+                        <span 
+                          className="text-slate-400 hover:text-slate-600 cursor-help"
+                          title="Control which pages display the SitePulse widget across your website without editing code"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
                       </div>
 
                       {/* Master Widget Switch */}
-                      <div className="flex items-center gap-3.5 bg-slate-50 border border-slate-200 p-2.5 px-4 rounded-xl shrink-0">
-                        <div className="text-right">
-                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Master Switch</div>
-                          <div className={`text-sm font-bold ${pageRules.enabled !== false ? 'text-emerald-700' : 'text-slate-500'}`}>
-                            {pageRules.enabled !== false ? 'Active Site-wide' : 'Disabled Everywhere'}
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl shrink-0">
+                        <span className="text-sm font-semibold text-slate-700">
+                          {pageRules.enabled !== false ? 'Widget Active' : 'Widget Disabled'}
+                        </span>
                         <button
                           type="button"
                           onClick={() => setPageRules(prev => ({ ...prev, enabled: prev.enabled === false }))}
-                          className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${
+                          title={pageRules.enabled !== false ? "Widget is enabled site-wide. Click to disable." : "Widget is disabled everywhere. Click to enable."}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${
                             pageRules.enabled !== false ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
                           }`}
                         >
-                          <div className="bg-white w-4 h-4 rounded-full shadow-md transform transition" />
+                          <div className="bg-white w-4 h-4 rounded-full shadow-sm transform transition" />
                         </button>
                       </div>
                     </div>
 
                     {/* 2. Default Policy Selector */}
-                    <div className="space-y-2.5 pt-1">
-                      <div>
-                        <label className="text-sm font-bold text-slate-900 block">Default Visibility for New / Unlisted Pages</label>
-                        <p className="text-xs sm:text-sm text-slate-500">Determine whether new or unlisted URLs automatically show or hide the widget.</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-semibold text-slate-800">Default Visibility</label>
+                        <span 
+                          className="text-slate-400 hover:text-slate-600 cursor-help"
+                          title="Determine whether new or unlisted URLs automatically show or hide the widget"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                        {/* Option 1: Allow by default */}
-                        <div
+                      <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+                        <button
+                          type="button"
                           onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'allow' }))}
-                          className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                          title="Widget appears on all pages unless you explicitly add a rule to hide it below."
+                          className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer flex items-center gap-2 ${
                             pageRules.defaultPolicy !== 'block'
-                              ? 'border-[#287170] bg-[#287170]/5 shadow-xs'
-                              : 'border-slate-200 hover:border-slate-300 bg-white'
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
-                          <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
-                            pageRules.defaultPolicy !== 'block' ? 'border-[#287170]' : 'border-slate-300'
-                          }`}>
-                            {pageRules.defaultPolicy !== 'block' && (
-                              <div className="w-2 h-2 rounded-full bg-[#287170]" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-slate-900">Show by Default (Recommended)</div>
-                            <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                              Widget appears on all pages unless you explicitly add a rule to hide it below.
-                            </div>
-                          </div>
-                        </div>
+                          <span className={`w-2 h-2 rounded-full ${pageRules.defaultPolicy !== 'block' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                          <span>Show by Default</span>
+                        </button>
 
-                        {/* Option 2: Block by default */}
-                        <div
+                        <button
+                          type="button"
                           onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'block' }))}
-                          className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                          title="Widget is hidden across your site and only appears on pages you explicitly allow."
+                          className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer flex items-center gap-2 ${
                             pageRules.defaultPolicy === 'block'
-                              ? 'border-rose-500 bg-rose-50/20 shadow-xs'
-                              : 'border-slate-200 hover:border-slate-300 bg-white'
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
-                          <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
-                            pageRules.defaultPolicy === 'block' ? 'border-rose-500' : 'border-slate-300'
-                          }`}>
-                            {pageRules.defaultPolicy === 'block' && (
-                              <div className="w-2 h-2 rounded-full bg-rose-500" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-slate-900">Strict Whitelist (Hidden by Default)</div>
-                            <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                              Widget is hidden across your site and only appears on pages you explicitly allow.
-                            </div>
-                          </div>
-                        </div>
+                          <span className={`w-2 h-2 rounded-full ${pageRules.defaultPolicy === 'block' ? 'bg-rose-500' : 'bg-slate-300'}`} />
+                          <span>Hide by Default (Whitelist)</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1952,16 +1937,17 @@ export default function App() {
                   {/* 3. Discovered Pages Table & Scanner */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                     <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
-                      <div>
-                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                          <span>Discovered Pages & Paths</span>
-                          <span className="text-xs bg-slate-200/80 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">
-                            {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length} Found
-                          </span>
-                        </h3>
-                        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                          Auto-detected via website link crawler and real-time visitor traffic.
-                        </p>
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-base font-bold text-slate-900">Pages & Paths</h3>
+                        <span className="text-xs bg-slate-200/80 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">
+                          {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length}
+                        </span>
+                        <span 
+                          className="text-slate-400 hover:text-slate-600 cursor-help"
+                          title="Auto-detected via website crawler and visitor traffic"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2.5">
@@ -1982,7 +1968,7 @@ export default function App() {
                           type="button"
                           onClick={handleScanWebsite}
                           disabled={scanningSite}
-                          className="px-4 py-2 bg-[#287170] hover:bg-[#205d5c] text-white text-xs sm:text-sm font-semibold rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
+                          className="px-4 py-2 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${scanningSite ? 'animate-spin' : ''}`} />
                           <span>{scanningSite ? 'Scanning...' : 'Scan Website'}</span>
@@ -1994,7 +1980,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleBulkSetRules(true)}
-                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-medium rounded-xl transition cursor-pointer"
+                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition cursor-pointer"
                               title="Show widget on all discovered pages"
                             >
                               Enable All
@@ -2002,7 +1988,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleBulkSetRules(false)}
-                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-medium rounded-xl transition cursor-pointer"
+                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition cursor-pointer"
                               title="Hide widget on all discovered pages"
                             >
                               Disable All
@@ -2028,11 +2014,11 @@ export default function App() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-slate-100 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            <th className="py-3.5 px-5">Path / Page</th>
-                            <th className="py-3.5 px-4">Discovery Source</th>
-                            <th className="py-3.5 px-4">Rule Mode</th>
-                            <th className="py-3.5 px-5 text-right">Widget Visibility</th>
+                          <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600 tracking-wider">
+                            <th className="py-3 px-5">Path / Page</th>
+                            <th className="py-3 px-4">Source</th>
+                            <th className="py-3 px-4">Rule</th>
+                            <th className="py-3 px-5 text-right">Visibility</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-sm">
@@ -2054,14 +2040,14 @@ export default function App() {
 
                                 return (
                                   <tr key={path} className="hover:bg-slate-50/75 transition-colors">
-                                    <td className="py-4 px-5">
+                                    <td className="py-3.5 px-5">
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span className="font-mono text-sm font-semibold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/80">
                                           {path}
                                         </span>
                                         {path === '/' && (
-                                          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                                            Homepage
+                                          <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                            Home
                                           </span>
                                         )}
                                         {item.views > 0 && (
@@ -2071,38 +2057,48 @@ export default function App() {
                                         )}
                                       </div>
                                     </td>
-                                    <td className="py-4 px-4">
+                                    <td className="py-3.5 px-4">
                                       {item.source === 'traffic' ? (
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">
-                                          📡 Real Traffic
+                                        <span 
+                                          className="inline-flex items-center text-xs font-medium text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-100"
+                                          title="Discovered from real visitor page views"
+                                        >
+                                          Traffic
                                         </span>
                                       ) : item.source === 'crawler' ? (
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                                          🔍 Crawler Link
+                                        <span 
+                                          className="inline-flex items-center text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100"
+                                          title="Discovered from website crawler"
+                                        >
+                                          Crawler
                                         </span>
                                       ) : item.source === 'custom_rule' ? (
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100">
-                                          ⚙️ Custom Pattern
+                                        <span 
+                                          className="inline-flex items-center text-xs font-medium text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100"
+                                          title="Custom wildcard or path pattern"
+                                        >
+                                          Pattern
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full">
-                                          🏠 Root
+                                        <span className="inline-flex items-center text-xs font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+                                          Root
                                         </span>
                                       )}
                                     </td>
-                                    <td className="py-4 px-4 text-xs font-medium text-slate-500">
+                                    <td className="py-3.5 px-4 text-xs font-medium">
                                       {isExplicit ? (
-                                        <span className="font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md">Custom Override</span>
+                                        <span className="text-slate-800 font-semibold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Override</span>
                                       ) : (
-                                        <span className="text-slate-400">Default Policy</span>
+                                        <span className="text-slate-500 font-medium">Default</span>
                                       )}
                                     </td>
-                                    <td className="py-4 px-5 text-right">
+                                    <td className="py-3.5 px-5 text-right">
                                       <div className="flex items-center justify-end gap-2">
                                         <button
                                           type="button"
                                           onClick={() => handleTogglePageRule(path)}
-                                          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition shadow-2xs cursor-pointer ${
+                                          title={isAllowed ? "Click to hide widget on this path" : "Click to show widget on this path"}
+                                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
                                             isAllowed
                                               ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
                                               : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
@@ -2110,13 +2106,13 @@ export default function App() {
                                         >
                                           {isAllowed ? (
                                             <>
-                                              <Eye className="w-4 h-4 text-emerald-600" />
-                                              <span>Active (Visible)</span>
+                                              <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                                              <span>Visible</span>
                                             </>
                                           ) : (
                                             <>
-                                              <EyeOff className="w-4 h-4 text-rose-600" />
-                                              <span>Hidden (Disabled)</span>
+                                              <EyeOff className="w-3.5 h-3.5 text-rose-600" />
+                                              <span>Hidden</span>
                                             </>
                                           )}
                                         </button>
@@ -2142,18 +2138,20 @@ export default function App() {
                   </div>
 
                   {/* 4. Add Custom Wildcard / Pattern Rule */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-lg">
-                        *
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-slate-900">Add Custom Path or Wildcard Pattern</h3>
-                        <p className="text-xs sm:text-sm text-slate-500 font-medium">Pre-emptively show or hide the widget on specific paths or patterns.</p>
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-3.5">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-900">Add Pattern Rule</h3>
+                        <span 
+                          className="text-slate-400 hover:text-slate-600 cursor-help"
+                          title="Pre-emptively show or hide the widget on specific paths or patterns (e.g. /checkout/*, /admin/*)"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
                       </div>
                     </div>
 
-                    <form onSubmit={handleAddCustomPattern} className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                    <form onSubmit={handleAddCustomPattern} className="flex flex-col sm:flex-row items-center gap-3">
                       <div className="relative flex-1 w-full">
                         <input
                           type="text"
@@ -2166,10 +2164,10 @@ export default function App() {
                       <select
                         value={customPatternAction}
                         onChange={(e) => setCustomPatternAction(e.target.value)}
-                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#287170] cursor-pointer"
+                        className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#287170] cursor-pointer"
                       >
-                        <option value="block">Hide Widget (Disabled)</option>
-                        <option value="allow">Show Widget (Active)</option>
+                        <option value="block">Hide Widget</option>
+                        <option value="allow">Show Widget</option>
                       </select>
                       <button
                         type="submit"
@@ -2181,14 +2179,14 @@ export default function App() {
                     </form>
 
                     {/* Quick suggestion chips */}
-                    <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500">
-                      <span className="font-semibold text-slate-600">Quick examples:</span>
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">Examples:</span>
                       {['/checkout/*', '/admin/*', '/login', '/pricing', '*.html'].map((chip) => (
                         <button
                           key={chip}
                           type="button"
                           onClick={() => setCustomPatternInput(chip)}
-                          className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs cursor-pointer transition"
+                          className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs cursor-pointer transition border border-slate-200/60"
                         >
                           {chip}
                         </button>
@@ -2196,27 +2194,33 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* 5. Save & Publish Bar */}
-                  <div className="sticky bottom-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="text-xs sm:text-sm text-slate-600 font-medium flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-[#287170]" />
-                      <span>Changes take effect in real-time across your visitors and single-page app navigations.</span>
+                  {/* 5. Save Rules Bar */}
+                  <div className="sticky bottom-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-md p-3.5 px-5 flex items-center justify-between gap-3">
+                    <div className="text-xs sm:text-sm font-medium text-slate-600">
+                      {pageRulesSaved ? (
+                        <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                          <Check className="w-4 h-4 text-emerald-600" />
+                          <span>Rules saved</span>
+                        </span>
+                      ) : (
+                        <span>Configure page rules and save when ready.</span>
+                      )}
                     </div>
                     <button
                       type="button"
                       onClick={handleSavePageRules}
                       disabled={savingPageRules}
-                      className="px-6 py-2.5 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-bold rounded-xl transition shadow-sm shadow-[#287170]/25 flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+                      className="px-5 py-2 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
                     >
-                      {pageRulesSaved ? (
+                      {savingPageRules ? (
                         <>
-                          <Check className="w-4 h-4 text-emerald-300" />
-                          <span>Rules Published Live!</span>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Saving...</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4" />
-                          <span>{savingPageRules ? 'Publishing...' : 'Save & Publish Rules'}</span>
+                          <Check className="w-4 h-4" />
+                          <span>Save Rules</span>
                         </>
                       )}
                     </button>
@@ -2230,18 +2234,23 @@ export default function App() {
                   {/* Property Details & Domain URL Configuration Card */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
-                        <Globe className="w-5 h-5" />
+                      <div className="w-9 h-9 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
+                        <Globe className="w-4 h-4" />
                       </div>
-                      <div>
-                        <h3 className="text-base font-bold text-slate-900">Website Property & Domain URL</h3>
-                        <p className="text-sm text-slate-500 font-medium">Update your website name and URL without losing any past chats or resetting your key</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900">Website Details</h3>
+                        <span 
+                          className="text-slate-400 hover:text-slate-600 cursor-help"
+                          title="Update your website name and URL without losing chat data or resetting your API key"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
                       </div>
                     </div>
 
                     <form onSubmit={handleUpdateSiteDetails} className="space-y-4 pt-1">
                       {siteDetailsMessage && (
-                        <div className={`p-3.5 px-4 rounded-xl text-sm font-medium flex items-center justify-between border ${
+                        <div className={`p-3 px-4 rounded-xl text-sm font-medium flex items-center justify-between border ${
                           siteDetailsMessage.type === 'success'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : 'bg-rose-50 text-rose-800 border-rose-200'
@@ -2257,7 +2266,7 @@ export default function App() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                            Website / Property Name
+                            Website Name
                           </label>
                           <input
                             type="text"
@@ -2270,7 +2279,7 @@ export default function App() {
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                            Registered Domain / Website URL
+                            Domain / URL
                           </label>
                           <input
                             type="text"
@@ -2283,14 +2292,6 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Safe URL Update Explanation Callout */}
-                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex items-start gap-2.5">
-                        <span className="text-base select-none">🛡️</span>
-                        <div className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                          <strong className="text-slate-800">Zero Data Loss Guarantee:</strong> Changing your domain or switching from local development (<code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-xs">localhost:3000</code>) to production (<code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-xs">myapp.com</code>) will <strong>never</strong> erase your conversations, messages, feedback, or analytics. Your public Site Key and embed script remain unchanged.
-                        </div>
-                      </div>
-
                       <div className="flex justify-end pt-1">
                         <button
                           type="submit"
@@ -2300,12 +2301,12 @@ export default function App() {
                           {savingSiteDetails ? (
                             <>
                               <RefreshCw className="w-4 h-4 animate-spin" />
-                              <span>Updating URL...</span>
+                              <span>Updating...</span>
                             </>
                           ) : (
                             <>
                               <Check className="w-4 h-4" />
-                              <span>Update URL & Name</span>
+                              <span>Save Details</span>
                             </>
                           )}
                         </button>
@@ -2316,12 +2317,17 @@ export default function App() {
                   {/* Site Key Card */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
-                        <Key className="w-5 h-5" />
+                      <div className="w-9 h-9 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
+                        <Key className="w-4 h-4" />
                       </div>
-                      <div>
-                        <h3 className="text-base font-bold text-slate-900">Site Key (Public API Key)</h3>
-                        <p className="text-sm text-slate-600 font-medium">Embedded in your client-side website code to authenticate the widget</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900">Site Key</h3>
+                        <span 
+                          className="text-slate-400 hover:text-slate-600 cursor-help"
+                          title="Embedded in your client-side website code to authenticate the widget"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
                       </div>
                     </div>
 
@@ -2345,12 +2351,17 @@ export default function App() {
                   {/* Embed Script Integration */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
                     <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
-                        <Code2 className="w-5 h-5" />
+                      <div className="w-9 h-9 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
+                        <Code2 className="w-4 h-4" />
                       </div>
-                      <div>
+                      <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-slate-900">HTML Embed Script</h3>
-                        <p className="text-sm text-slate-600 font-medium">Insert this single line right before the closing &lt;/body&gt; tag on your website</p>
+                        <span 
+                          className="text-slate-400 hover:text-slate-600 cursor-help"
+                          title="Insert this single line right before the closing </body> tag on your website"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                        </span>
                       </div>
                     </div>
 
@@ -2370,70 +2381,66 @@ export default function App() {
                     <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm">
                       <div className="flex items-center gap-2 text-slate-700 font-medium">
                         <Layers className="w-4 h-4 text-[#287170]" />
-                        <span>Want to show or hide the widget on specific pages?</span>
+                        <span>Configure page targeting and display rules</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveNav('page-rules')}
                         className="text-[#287170] hover:text-[#205d5c] font-bold flex items-center gap-1 cursor-pointer"
                       >
-                        <span>Configure Page Rules →</span>
+                        <span>Page Rules →</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Danger Zone: Destructive Actions */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-5">
-                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
-                        <Trash2 className="w-5 h-5" />
-                      </div>
-                      <div>
+                  <div className="bg-white rounded-2xl border border-rose-200 shadow-xs overflow-hidden">
+                    <div className="p-5 border-b border-rose-100 bg-rose-50/40 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <AlertTriangle className="w-5 h-5 text-rose-600" />
                         <h3 className="text-base font-bold text-slate-900">Danger Zone</h3>
-                        <p className="text-sm text-slate-500 font-medium">Irreversible actions for this website property</p>
                       </div>
+                      <span className="text-xs font-semibold text-rose-700 bg-rose-100/80 px-2.5 py-0.5 rounded-full">
+                        Irreversible
+                      </span>
                     </div>
 
-                    {/* Action 1: Delete All Chats */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                          <MessageSquareX className="w-4 h-4 text-rose-600" />
-                          <span>Delete All Conversations</span>
-                        </h4>
-                        <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
-                          Permanently clear all visitor conversation threads and messages for <strong className="text-slate-800">{activeSite.name}</strong>. Feedback ratings, bug reports, and analytics will remain completely intact.
-                        </p>
+                    <div className="divide-y divide-slate-100">
+                      {/* Action 1: Delete All Chats */}
+                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-900">Clear Conversations</h4>
+                          <p className="text-sm text-slate-500 mt-0.5">
+                            Permanently clear all visitor conversation threads and messages for this site. Feedback and analytics remain intact.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => promptDeleteChats(activeSite)}
+                          className="px-4 py-2 border border-slate-300 hover:border-rose-300 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 cursor-pointer"
+                        >
+                          <MessageSquareX className="w-4 h-4 text-rose-500" />
+                          <span>Clear Chats</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => promptDeleteChats(activeSite)}
-                        className="self-start sm:self-center px-4 py-2.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-700 hover:text-rose-700 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 shadow-2xs cursor-pointer"
-                      >
-                        <MessageSquareX className="w-4 h-4 text-rose-600" />
-                        <span>Delete All Chats</span>
-                      </button>
-                    </div>
 
-                    {/* Action 2: Delete Entire Website Property */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 rounded-xl border border-rose-100 bg-rose-50/30">
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-bold text-rose-950 flex items-center gap-2">
-                          <Trash2 className="w-4 h-4 text-rose-600" />
-                          <span>Delete Entire Website Property</span>
-                        </h4>
-                        <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
-                          Permanently delete <strong className="text-slate-800">{activeSite.name}</strong> ({activeSite.domain}) and all associated conversations, feedback, bugs, and analytics.
-                        </p>
+                      {/* Action 2: Delete Entire Website Property */}
+                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-rose-50/20">
+                        <div>
+                          <h4 className="text-sm font-semibold text-rose-950">Delete Website Property</h4>
+                          <p className="text-sm text-slate-500 mt-0.5">
+                            Permanently delete <strong className="text-slate-800">{activeSite.name}</strong> ({activeSite.domain}) and all associated data, settings, and metrics.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => promptDeleteSite(activeSite)}
+                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 shadow-xs cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Website</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => promptDeleteSite(activeSite)}
-                        className="self-start sm:self-center px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 shadow-xs cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span>Delete Website</span>
-                      </button>
                     </div>
                   </div>
                 </div>
