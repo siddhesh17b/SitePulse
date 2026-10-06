@@ -586,9 +586,6 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
       if (h.startsWith('169.254.') || h === 'metadata.google.internal' || h === '0.0.0.0' || h === '[::1]' || h === '::1') {
         return res.status(400).json({ error: 'Scanning internal link-local or metadata addresses is restricted for security.' });
       }
-      if (h === 'localhost' && process.env.PORT && parsed.port && parsed.port !== String(process.env.PORT)) {
-        targetUrl = targetUrl.replace(`:${parsed.port}`, `:${process.env.PORT}`);
-      }
     } catch (e) {
       return res.status(400).json({ error: 'Invalid site domain URL format.' });
     }
@@ -637,18 +634,24 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
         }
 
         const html = await resp.text();
-        const hrefRegex = /href\s*=\s*(?:["']([^"']+)["']|([^\s>]+))/gi;
+        const linkRegex = /(?:href|to)\s*=\s*(?:["']([^"']+)["']|([^\s>]+))/gi;
         let match;
-        while ((match = hrefRegex.exec(html)) !== null && discoveredSet.size < MAX_DISCOVERED_PAGES) {
+        while ((match = linkRegex.exec(html)) !== null && discoveredSet.size < MAX_DISCOVERED_PAGES) {
           const href = (match[1] || match[2] || '').trim();
           if (
             !href ||
-            href.startsWith('#') ||
+            (href.startsWith('#') && !href.startsWith('#/')) ||
+            href === '#' ||
             href.startsWith('mailto:') ||
             href.startsWith('tel:') ||
             href.startsWith('javascript:') ||
             href.startsWith('data:')
           ) {
+            continue;
+          }
+
+          if (href.startsWith('#/')) {
+            discoveredSet.add(href);
             continue;
           }
 
