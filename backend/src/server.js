@@ -592,12 +592,19 @@ app.post('/api/v1/sites/:siteKey/scan', authMiddleware, async (req, res) => {
 
     const MAX_FETCHES = 25;
     const MAX_DISCOVERED_PAGES = 100;
-    const discoveredSet = new Set(['/']);
-    const visitedUrls = new Set();
-    const queue = [targetUrl];
-    const issues = [];
     const parsedTarget = new URL(targetUrl);
     const targetOrigin = parsedTarget.origin.toLowerCase();
+    const discoveredSet = new Set(['/']);
+    if (parsedTarget.pathname && parsedTarget.pathname !== '/') {
+      discoveredSet.add(normalizePathname(parsedTarget.pathname));
+    }
+    const visitedUrls = new Set();
+    const rootUrl = targetOrigin + '/';
+    const queue = [targetUrl];
+    if (targetUrl !== rootUrl && !queue.includes(rootUrl)) {
+      queue.push(rootUrl);
+    }
+    const issues = [];
 
     // 1. Multi-level BFS Crawl of internal links
     while (queue.length > 0 && visitedUrls.size < MAX_FETCHES && discoveredSet.size < MAX_DISCOVERED_PAGES) {

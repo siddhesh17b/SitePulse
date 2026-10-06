@@ -311,11 +311,40 @@
 
     const style = document.createElement('style');
     style.textContent = `
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('${backendUrl}/widget/fonts/inter-latin-400-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('${backendUrl}/widget/fonts/inter-latin-500-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('${backendUrl}/widget/fonts/inter-latin-600-normal.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('${backendUrl}/widget/fonts/inter-latin-700-normal.woff2') format('woff2');
+      }
+
       * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
 
       .sp-launcher {
@@ -775,6 +804,25 @@
         border-radius: 6px;
         border-left: 3px solid ${contrast.activeTab};
         line-height: 1.4;
+      }
+
+      @media (max-width: 480px) {
+        .sp-window {
+          bottom: 0 !important;
+          right: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          max-width: 100vw !important;
+          height: 100vh !important;
+          max-height: 100vh !important;
+          border-radius: 0 !important;
+        }
+        .sp-launcher {
+          bottom: 16px;
+          ${isLeft ? 'left: 16px;' : 'right: 16px;'}
+          width: 52px;
+          height: 52px;
+        }
       }
     `;
     shadowRoot.appendChild(style);
