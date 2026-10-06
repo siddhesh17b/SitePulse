@@ -96,8 +96,102 @@
       }
     } catch (e) {}
   }
+  function isPathMatching(pattern, currentPath) {
+    if (!pattern || !currentPath) return false;
+    pattern = pattern.trim().toLowerCase();
+    currentPath = currentPath.trim().toLowerCase();
+
+    // Universal wildcards
+    if (pattern === '*' || pattern === '/*') return true;
+
+    if (pattern.length > 1 && pattern.endsWith('/')) pattern = pattern.slice(0, -1);
+    if (currentPath.length > 1 && currentPath.endsWith('/')) currentPath = currentPath.slice(0, -1);
+
+    if (pattern === currentPath) return true;
+
+    // Wildcard subdirectory e.g. /admin/*
+    if (pattern.endsWith('/*')) {
+      const base = pattern.slice(0, -2);
+      return currentPath === base || currentPath.startsWith(base + '/');
+    }
+    // Prefix wildcard e.g. /admin*
+    if (pattern.endsWith('*')) {
+      const prefix = pattern.slice(0, -1);
+      return currentPath.startsWith(prefix);
+    }
+    // Extension wildcard e.g. *.html
+    if (pattern.startsWith('*.')) {
+      const ext = pattern.slice(1);
+      return currentPath.endsWith(ext);
+    }
+    return false;
+  }
+
+  function isCurrentPageAllowed() {
+    if (widgetSettings.widgetActive === false) return false;
+    const pageRules = widgetSettings.pageRules;
+    if (!pageRules || typeof pageRules !== 'object') return true;
+    if (pageRules.enabled === false) return false;
+
+    const currentPath = (window.location.pathname || '/').toLowerCase();
+    let hashPath = '';
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      hashPath = window.location.hash.slice(1).toLowerCase().split('?')[0];
+    }
+
+    const rules = pageRules.rules || {};
+
+    // Check explicit rules for standard pathname or hash route
+    for (const [pattern, isAllowed] of Object.entries(rules)) {
+      if (isPathMatching(pattern, currentPath) || (hashPath && isPathMatching(pattern, hashPath))) {
+        return Boolean(isAllowed);
+      }
+    }
+
+    // Default policy: 'allow' (default) or 'block'
+    return pageRules.defaultPolicy !== 'block';
+  }
+
+  function handleNavigationChange() {
+    trackPageView();
+    const isAllowed = isCurrentPageAllowed();
+    const existingContainer = document.getElementById('sitepulse-widget-root');
+    if (isAllowed) {
+      if (!existingContainer) {
+        initWidget();
+      } else {
+        existingContainer.style.display = '';
+      }
+    } else {
+      if (existingContainer) {
+        existingContainer.style.display = 'none';
+      }
+    }
+  }
+
   trackPageView();
-  window.addEventListener('popstate', trackPageView);
+  window.addEventListener('popstate', handleNavigationChange);
+  window.addEventListener('hashchange', handleNavigationChange);
+
+  // Hook SPA History transitions for Next.js, React, Vue
+  try {
+    const origPush = history.pushState;
+    if (origPush) {
+      history.pushState = function () {
+        const res = origPush.apply(this, arguments);
+        handleNavigationChange();
+        return res;
+      };
+    }
+    const origReplace = history.replaceState;
+    if (origReplace) {
+      history.replaceState = function () {
+        const res = origReplace.apply(this, arguments);
+        handleNavigationChange();
+        return res;
+      };
+    }
+  } catch (e) {}
 
   // 4. Fetch Widget Settings & Render
   let widgetSettings = {
@@ -109,7 +203,13 @@
     enableChat: true,
     enableFeedback: true,
     enableBugReport: true,
-    requireEmail: true
+    requireEmail: true,
+    widgetActive: true,
+    pageRules: {
+      enabled: true,
+      defaultPolicy: 'allow',
+      rules: {}
+    }
   };
 
   fetch(`${backendUrl}/api/v1/widget/config?key=${siteKey}`)
@@ -118,11 +218,15 @@
       if (data && data.settings) {
         widgetSettings = { ...widgetSettings, ...data.settings };
       }
-      initWidget();
+      if (isCurrentPageAllowed()) {
+        initWidget();
+      }
     })
     .catch((err) => {
       console.warn('[SitePulse] Using default settings:', err);
-      initWidget();
+      if (isCurrentPageAllowed()) {
+        initWidget();
+      }
     });
 
   // State management
@@ -144,6 +248,14 @@
   }
 
   function initWidget() {
+    if (document.getElementById('sitepulse-widget-root')) return;
+    if (!isCurrentPageAllowed()) return;
+
+    if (!document.body) {
+      document.addEventListener('DOMContentLoaded', initWidget);
+      return;
+    }
+
     if (widgetSettings.enableChat) activeTab = 'chat';
     else if (widgetSettings.enableFeedback) activeTab = 'feedback';
     else if (widgetSettings.enableBugReport) activeTab = 'bug';
@@ -1223,6 +1335,7 @@
         });
 
         socket.on('connect', () => {
+          socket.emit('join_site', { siteKey: siteKey });
           if (conversation && conversation.id) {
             socket.emit('join_conversation', { conversationId: conversation.id });
             flushPendingMessages();
@@ -1259,6 +1372,7 @@
           const subtitleEl = shadowRoot.getElementById('sp-subtitle');
           if (titleEl) titleEl.textContent = widgetSettings.title;
           if (subtitleEl) subtitleEl.textContent = widgetSettings.subtitle;
+          handleNavigationChange();
         });
 
         socket.on('all_conversations_deleted', () => {
