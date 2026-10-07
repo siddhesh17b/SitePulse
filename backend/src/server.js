@@ -40,10 +40,14 @@ app.use('/widget', express.static(path.join(__dirname, '../../widget')));
 app.get('/sitepulse.js', (req, res) => {
   res.sendFile(path.join(__dirname, '../../widget/sitepulse.js'));
 });
-app.use('/demo-site', express.static(path.join(__dirname, '../../demo-site')));
-app.use('/demo', express.static(path.join(__dirname, '../../demo-site/demo1')));
-app.use('/demo1', express.static(path.join(__dirname, '../../demo-site/demo1')));
-app.use('/demo2', express.static(path.join(__dirname, '../../demo-site/demo2/src')));
+const fs = require('fs');
+const demoSitePath = path.join(__dirname, '../../demo-site');
+if (fs.existsSync(demoSitePath)) {
+  app.use('/demo-site', express.static(demoSitePath));
+  app.use('/demo', express.static(path.join(demoSitePath, 'demo1')));
+  app.use('/demo1', express.static(path.join(demoSitePath, 'demo1')));
+  app.use('/demo2', express.static(path.join(demoSitePath, 'demo2/src')));
+}
 
 // Mount Authentication Routes
 app.use('/api/v1/auth', authRoutes);

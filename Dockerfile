@@ -36,9 +36,6 @@ COPY backend/src ./src
 # Copy Embed Widget
 COPY widget /app/widget
 
-# Copy Demo Site
-COPY demo-site /app/demo-site
-
 # Copy built dashboard from stage 1 into dashboard/dist
 COPY --from=dashboard-builder /app/dashboard/dist /app/dashboard/dist
 
