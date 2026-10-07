@@ -8,6 +8,8 @@
     "dev:dashboard": "npm --prefix dashboard run dev",
     "start:dashboard": "npm --prefix dashboard run dev",
     "build:dashboard": "npm --prefix dashboard run build",
+    "build": "npm --prefix dashboard install && npm --prefix dashboard run build && npm --prefix backend install && npm --prefix backend run prisma:generate && npm --prefix backend run prisma:push",
+    "start": "node backend/src/server.js",
     "db:reset": "npm --prefix backend run db:reset"
   }
 }
