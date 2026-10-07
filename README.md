@@ -58,7 +58,7 @@ npm --prefix dashboard install
 2. Configure backend environment:
 
 ```bash
-cp /home/runner/work/SitePulse/SitePulse/backend/.env.example /home/runner/work/SitePulse/SitePulse/backend/.env
+cp backend/.env.example backend/.env
 ```
 
 Then update at least:
@@ -77,7 +77,7 @@ npm --prefix backend run prisma:push
 4. (Optional) seed demo site:
 
 ```bash
-node /home/runner/work/SitePulse/SitePulse/backend/src/seed.js
+node backend/src/seed.js
 ```
 
 5. Start services:
