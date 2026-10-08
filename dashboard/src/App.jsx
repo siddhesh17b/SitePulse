@@ -1,91 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  MessageSquare, 
-  MessageSquareX,
-  Palette, 
-  Bug, 
-  BarChart3, 
-  Settings, 
-  Send, 
-  Copy, 
-  Check, 
-  Star, 
-  LogOut, 
-  Plus, 
-  Lock, 
-  Mail, 
-  User as UserIcon, 
-  ChevronDown, 
-  ChevronLeft, 
-  Layers, 
-  Search, 
-  CheckCircle2, 
-  Trash2, 
-  Menu, 
-  X,
-  Globe,
-  Key,
-  Code2,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  ExternalLink,
-  HelpCircle,
-  AlertTriangle
-} from 'lucide-react';
+import { Menu, Layers, Plus } from 'lucide-react';
 import { io } from 'socket.io-client';
+
+import AuthView from './components/AuthView';
+import Sidebar from './components/Sidebar';
+import ChatView from './components/ChatView';
+import CustomizerView from './components/CustomizerView';
+import FeedbackView from './components/FeedbackView';
+import AnalyticsView from './components/AnalyticsView';
+import PageRulesView from './components/PageRulesView';
+import SettingsView from './components/SettingsView';
+import { 
+  ChangeDomainModal, 
+  NewSiteModal, 
+  DeleteSiteModal, 
+  DeleteChatsModal 
+} from './components/Modals';
 
 const BACKEND_URL = (window.location.origin.includes(':3000') || window.location.origin.includes(':5173'))
   ? 'http://localhost:5000' 
   : window.location.origin;
-
-// Modern Geometric SitePulse Logo Mark
-function SitePulseLogo({ className = "w-9 h-9" }) {
-  return (
-    <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-xs">
-        <defs>
-          <linearGradient id="spGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#287170" />
-            <stop offset="100%" stopColor="#1e5857" />
-          </linearGradient>
-        </defs>
-        <rect width="40" height="40" rx="11" fill="url(#spGrad)" />
-        <path
-          d="M8.5 20.5H13L16 13L20.5 27L24.5 16.5L27 20.5H31.5"
-          stroke="#ffffff"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="20.5" cy="27" r="2" fill="#ffffff" />
-      </svg>
-    </div>
-  );
-}
-
-function getContrastColors(hexColor) {
-  let hex = (hexColor || '#000000').replace('#', '').trim();
-  if (hex.length === 3) {
-    hex = hex.split('').map((c) => c + c).join('');
-  }
-  const r = parseInt(hex.substring(0, 2), 16) || 0;
-  const g = parseInt(hex.substring(2, 4), 16) || 0;
-  const b = parseInt(hex.substring(4, 6), 16) || 0;
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  const isLight = yiq >= 170;
-
-  return {
-    isLight,
-    text: isLight ? '#0f172a' : '#ffffff',
-    textMuted: isLight ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.88)',
-    headerBorder: isLight ? '1px solid #e2e8f0' : 'none',
-    activeTab: isLight ? '#0f172a' : (hexColor || '#000000'),
-    closeBtnBg: isLight ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.14)',
-    bubbleBorder: isLight ? '1px solid #cbd5e1' : 'none',
-    launcherBorder: isLight ? '1px solid #cbd5e1' : 'none'
-  };
-}
 
 export default function App() {
   // Purge any legacy persistent tokens from localStorage
@@ -109,7 +43,7 @@ export default function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
   // Navigation & Sites state
-  const [activeNav, setActiveNav] = useState('chat'); // 'chat' | 'customizer' | 'feedback' | 'analytics' | 'settings'
+  const [activeNav, setActiveNav] = useState('chat'); // 'chat' | 'customizer' | 'page-rules' | 'feedback' | 'analytics' | 'settings'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileChatView, setMobileChatView] = useState(false);
   const [sites, setSites] = useState([]);
@@ -917,186 +851,6 @@ export default function App() {
   // Total unread across all conversations
   const totalUnreadCount = Object.values(unreadCounts).reduce((acc, count) => acc + count, 0);
 
-  // ==========================================
-  // AUTH SCREEN (LOGIN / INITIAL SIGNUP)
-  // Modern Clean White & #287170 Theme
-  // ==========================================
-  if (authLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-white text-slate-900 font-sans">
-        <div className="flex flex-col items-center gap-3">
-          <SitePulseLogo className="w-12 h-12 animate-pulse" />
-          <span className="text-sm font-medium text-slate-500">Loading SitePulse...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen relative flex flex-col justify-between font-sans selection:bg-[#287170]/20 selection:text-[#287170] overflow-hidden">
-        {/* Animated Cube Background */}
-        <ul className="background" aria-hidden="true">
-          <li></li>
-          <li></li>
-          <li></li>
-          <li></li>
-          <li></li>
-          <li></li>
-        </ul>
-
-        {/* Clean Header */}
-        <header className="relative z-10 w-full border-b border-white/40 bg-white/70 backdrop-blur-md shadow-xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <SitePulseLogo className="w-8 h-8 shadow-xs" />
-              <span className="font-bold text-lg text-slate-900 tracking-tight">SitePulse</span>
-            </div>
-            <span className="text-xs font-semibold text-slate-700 bg-white/80 px-2.5 py-1 rounded-full border border-slate-200/80 shadow-2xs">Admin Portal</span>
-          </div>
-        </header>
-
-        {/* Main Content Area */}
-        <main className="relative z-10 flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-          <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 drop-shadow-2xs">
-              {authMode === 'signup' ? 'Create an account' : 'Sign in to SitePulse'}
-            </h2>
-            <p className="mt-2 text-sm text-slate-700 font-medium max-w-sm mx-auto">
-              {authMode === 'signup'
-                ? 'Enter your details below to create your admin account'
-                : 'Enter your credentials to access the admin dashboard'}
-            </p>
-          </div>
-
-          <div className="sm:mx-auto sm:w-full sm:max-w-md">
-            <div className="bg-white/95 backdrop-blur-md py-8 px-6 sm:px-10 shadow-2xl shadow-slate-900/10 rounded-2xl border border-white/80">
-              {authError && (
-                <div className="mb-5 bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-                  <span className="font-semibold">Error:</span> {authError}
-                </div>
-              )}
-
-              <form onSubmit={handleAuthSubmit} className="space-y-4">
-                {authMode === 'signup' && (
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <UserIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                      <input
-                        type="text"
-                        required
-                        value={authForm.name}
-                        onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                        placeholder="e.g. Sarah Connor"
-                        className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                    <input
-                      type="email"
-                      required
-                      value={authForm.email}
-                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                      placeholder="admin@example.com"
-                      className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                    <input
-                      type="password"
-                      required
-                      minLength={8}
-                      value={authForm.password}
-                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                      placeholder={authMode === 'signup' ? '•••••••• (min. 8 characters)' : '••••••••'}
-                      className="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#287170] focus:ring-2 focus:ring-[#287170]/15 transition"
-                    />
-                  </div>
-                </div>
-
-                {authMode === 'signup' && (
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                      Retype Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                      <input
-                        type="password"
-                        required
-                        minLength={8}
-                        value={authForm.confirmPassword}
-                        onChange={(e) => setAuthForm({ ...authForm, confirmPassword: e.target.value })}
-                        placeholder="Retype password to confirm"
-                        className={`w-full bg-slate-50/50 border ${
-                          authForm.confirmPassword && authForm.password !== authForm.confirmPassword
-                            ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15'
-                            : 'border-slate-200 focus:border-[#287170] focus:ring-[#287170]/15'
-                        } rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 transition`}
-                      />
-                    </div>
-                    {authForm.confirmPassword && authForm.password !== authForm.confirmPassword && (
-                      <p className="text-xs text-rose-600 mt-1.5 font-medium">Passwords do not match</p>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="w-full mt-2 bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-3.5 rounded-xl text-base shadow-sm shadow-[#287170]/25 transition duration-150 active:scale-[0.99] cursor-pointer"
-                >
-                  {authMode === 'signup' ? 'Complete Setup' : 'Sign In'}
-                </button>
-              </form>
-
-              <div className="mt-6 pt-5 border-t border-slate-100 text-center text-sm text-slate-500">
-                {authMode === 'signup' ? (
-                  <span>
-                    Already have an account?{' '}
-                    <button
-                      onClick={() => { setAuthMode('login'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
-                      className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
-                    >
-                      Sign In
-                    </button>
-                  </span>
-                ) : (
-                  <span>
-                    Don't have an account?{' '}
-                    <button
-                      onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthForm(prev => ({ ...prev, confirmPassword: '' })); }}
-                      className="text-[#287170] hover:underline font-semibold transition cursor-pointer"
-                    >
-                      Create Account
-                    </button>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   // Filtered conversations with unread support
   const filteredConversations = conversations.filter(conv => {
     if (statusFilter === 'unread') return (unreadCounts[conv.id] || 0) > 0;
@@ -1113,9 +867,24 @@ export default function App() {
     return true;
   });
 
-  // ==========================================
-  // AUTHENTICATED DASHBOARD (WHITE & #287170 THEME)
-  // ==========================================
+  // Auth Screen (loading / login / signup)
+  if (authLoading || !user) {
+    return (
+      <AuthView
+        authLoading={authLoading}
+        user={user}
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        authError={authError}
+        setAuthError={setAuthError}
+        authForm={authForm}
+        setAuthForm={setAuthForm}
+        handleAuthSubmit={handleAuthSubmit}
+      />
+    );
+  }
+
+  // Authenticated Dashboard
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       {/* Mobile Sidebar Overlay Backdrop */}
@@ -1126,216 +895,23 @@ export default function App() {
         />
       )}
 
-      {/* Sidebar Navigation - Clean Modern Light / White Theme */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 lg:w-64 bg-white text-slate-700 border-r border-slate-200 flex flex-col justify-between shrink-0 transform transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
-          mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
-        }`}
-      >
-        <div>
-          {/* Brand Header */}
-          <div className="p-5 flex items-center justify-between border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <SitePulseLogo className="w-9 h-9" />
-              <div>
-                <h1 className="font-bold text-lg tracking-tight text-slate-900 leading-none">SitePulse</h1>
-                <span className="text-xs text-slate-600 font-semibold">Dashboard</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition"
-              aria-label="Close sidebar"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Active Site Selector */}
-          <div className="p-4 border-b border-slate-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Active Site</span>
-              <button
-                onClick={() => {
-                  setShowNewSiteModal(true);
-                  setMobileMenuOpen(false);
-                }}
-                className="text-xs sm:text-sm text-[#287170] hover:text-[#205d5c] flex items-center gap-1 font-semibold transition cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New Site</span>
-              </button>
-            </div>
-
-            <div className="relative">
-              <select
-                value={activeSite?.id || ''}
-                onChange={(e) => {
-                  const s = sites.find(item => item.id === e.target.value);
-                  if (s) setActiveSite(s);
-                }}
-                className="w-full bg-slate-50 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 border border-slate-200 font-medium focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20 appearance-none cursor-pointer"
-              >
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.domain})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Navigation Items */}
-          <nav className="p-3 space-y-1">
-            {/* 1. Live Chat */}
-            <button
-              onClick={() => {
-                setActiveNav('chat');
-                setMobileMenuOpen(false);
-              }}
-              title="Real-time visitor chat threads and operator replies"
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-                activeNav === 'chat'
-                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-5 h-5" />
-                <span>Live Support Inbox</span>
-              </div>
-              {totalUnreadCount > 0 ? (
-                <span className="bg-white text-[#287170] text-xs px-2 py-0.5 rounded-full font-bold shadow-xs">
-                  {totalUnreadCount} new
-                </span>
-              ) : conversations.length > 0 ? (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeNav === 'chat' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                  {conversations.length}
-                </span>
-              ) : null}
-            </button>
-
-            {/* 2. Widget Customizer */}
-            <button
-              onClick={() => {
-                setActiveNav('customizer');
-                setMobileMenuOpen(false);
-              }}
-              title="Customize widget styling, colors, and branding"
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-                activeNav === 'customizer'
-                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <Palette className="w-5 h-5" />
-              <span>Widget Customizer</span>
-            </button>
-
-            {/* 3. Page Rules & Display */}
-            <button
-              onClick={() => {
-                setActiveNav('page-rules');
-                setMobileMenuOpen(false);
-              }}
-              title="Target widget display by path or wildcard patterns"
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-                activeNav === 'page-rules'
-                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="w-5 h-5" />
-              <span>Page Rules & Display</span>
-            </button>
-
-            {/* 4. Feedback & Bugs */}
-            <button
-              onClick={() => {
-                setActiveNav('feedback');
-                setMobileMenuOpen(false);
-              }}
-              title="Customer ratings and bug reports with diagnostics"
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-                activeNav === 'feedback'
-                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <Bug className="w-5 h-5" />
-              <span>Feedback & Bugs</span>
-            </button>
-
-            {/* 5. Analytics */}
-            <button
-              onClick={() => {
-                setActiveNav('analytics');
-                setMobileMenuOpen(false);
-              }}
-              title="Privacy-friendly traffic and pageview metrics"
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-                activeNav === 'analytics'
-                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <BarChart3 className="w-5 h-5" />
-              <span>Analytics</span>
-            </button>
-
-            {/* 6. Settings */}
-            <button
-              onClick={() => {
-                setActiveNav('settings');
-                setMobileMenuOpen(false);
-              }}
-              title="Website settings, embed code, and dangerous actions"
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-                activeNav === 'settings'
-                  ? 'bg-[#287170] text-white shadow-sm shadow-[#287170]/25'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              <span>Settings</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* Site Key Card & User Footer */}
-        <div className="p-4 border-t border-slate-100 space-y-3">
-          {activeSite && (
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-              <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Site Key</div>
-              <div className="font-mono text-sm text-[#287170] font-semibold mt-1 truncate select-all">{activeSite.apiKey}</div>
-              <div className="mt-2.5 pt-2 border-t border-slate-200">
-                <button
-                  onClick={copyEmbedCode}
-                  className="w-full text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 transition cursor-pointer"
-                >
-                  {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#287170]" />}
-                  <span>{copiedSnippet ? 'Copied script!' : 'Copy embed script'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-1">
-            <div className="truncate">
-              <div className="text-sm font-bold text-slate-900 truncate">{user.name}</div>
-              <div className="text-xs text-slate-600 font-medium truncate">{user.email}</div>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sign Out"
-              className="text-slate-500 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition cursor-pointer"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </aside>
+      {/* Sidebar Navigation */}
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        activeSite={activeSite}
+        sites={sites}
+        setActiveSite={setActiveSite}
+        setShowNewSiteModal={setShowNewSiteModal}
+        activeNav={activeNav}
+        setActiveNav={setActiveNav}
+        totalUnreadCount={totalUnreadCount}
+        conversations={conversations}
+        copiedSnippet={copiedSnippet}
+        copyEmbedCode={copyEmbedCode}
+        user={user}
+        handleLogout={handleLogout}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0 bg-slate-50">
@@ -1393,1452 +969,134 @@ export default function App() {
             </div>
           ) : (
             <>
-              {/* TAB 1: LIVE CHAT */}
               {activeNav === 'chat' && (
-                <div className="flex h-full min-w-0">
-                  <div className={`w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex flex-col shrink-0 ${mobileChatView ? 'hidden md:flex' : 'flex'}`}>
-                    <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Conversations ({filteredConversations.length})
-                      </span>
-                      <button 
-                        onClick={fetchConversations} 
-                        className="text-xs sm:text-sm text-[#287170] hover:text-[#205d5c] font-semibold transition cursor-pointer"
-                        title="Fetch latest conversations and messages"
-                      >
-                        Refresh
-                      </button>
-                    </div>
-
-                    {/* Search & Status Filters */}
-                    <div className="p-3.5 border-b border-slate-100 space-y-2.5">
-                      <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                        <input
-                          type="text"
-                          placeholder="Search visitor, email..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full bg-slate-50 text-sm pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:bg-white focus:border-[#287170] font-medium placeholder-slate-400"
-                          title="Search conversations by email, visitor ID, or message text"
-                        />
-                      </div>
-                      <div className="flex gap-1.5 text-xs overflow-x-auto pb-0.5">
-                        <button
-                          onClick={() => setStatusFilter('all')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'all' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-                          title="Show all conversations"
-                        >
-                          All ({conversations.length})
-                        </button>
-                        <button
-                          onClick={() => setStatusFilter('unread')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'unread' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-                          title="Show conversations with unread visitor messages"
-                        >
-                          Unread ({conversations.filter(c => (unreadCounts[c.id] || 0) > 0).length})
-                        </button>
-                        <button
-                          onClick={() => setStatusFilter('open')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'open' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-                          title="Show open conversations"
-                        >
-                          Open ({conversations.filter(c => c.status !== 'resolved').length})
-                        </button>
-                        <button
-                          onClick={() => setStatusFilter('resolved')}
-                          className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'resolved' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-                          title="Show resolved conversations"
-                        >
-                          Resolved ({conversations.filter(c => c.status === 'resolved').length})
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                      {filteredConversations.length === 0 ? (
-                        <div className="p-8 text-center text-slate-500 text-sm font-medium">
-                          {searchQuery ? 'No conversations matching search.' : 'No conversations found in this view.'}
-                        </div>
-                      ) : (
-                        filteredConversations.map((conv) => {
-                          const isSelected = selectedConv?.id === conv.id;
-                          const lastMsg = conv.messages?.[0]?.content || 'Started conversation';
-                          const isResolved = conv.status === 'resolved';
-                          const unreadCount = unreadCounts[conv.id] || 0;
-
-                          return (
-                            <div
-                              key={conv.id}
-                              onClick={() => handleSelectConversation(conv)}
-                              className={`p-4 cursor-pointer transition ${
-                                isSelected ? 'bg-[#287170]/5 border-l-4 border-[#287170]' : 'hover:bg-slate-50 border-l-4 border-transparent'
-                              }`}
-                              title={conv.visitorEmail ? `Email: ${conv.visitorEmail}` : `Visitor #${conv.visitorId.slice(-6)}`}
-                            >
-                              <div className="flex justify-between items-start gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {unreadCount > 0 && (
-                                    <span className="w-2 h-2 rounded-full bg-[#287170] shrink-0" />
-                                  )}
-                                  <span className={`text-sm truncate ${unreadCount > 0 ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
-                                    {conv.visitorName || conv.visitorEmail || `Visitor #${conv.visitorId.slice(-6)}`}
-                                  </span>
-                                </div>
-                                <span className="text-xs text-slate-400 font-medium shrink-0">
-                                  {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                              {conv.visitorEmail && (
-                                <div className="text-xs text-[#287170] font-medium truncate mt-0.5 flex items-center gap-1.5">
-                                  <Mail className="w-3 h-3 text-[#287170] shrink-0" />
-                                  <span className="truncate">{conv.visitorEmail}</span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                {unreadCount > 0 && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-[#287170] text-white">
-                                    {unreadCount} new
-                                  </span>
-                                )}
-                                {conv.externalId && (
-                                  <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200 font-semibold truncate">
-                                    Identified: #{conv.externalId}
-                                  </span>
-                                )}
-                                <span 
-                                  className={`text-xs px-2 py-0.5 rounded-md font-semibold ${isResolved ? 'bg-slate-100 text-slate-600' : 'bg-[#287170]/10 text-[#287170]'}`}
-                                  title={isResolved ? "Conversation is marked resolved" : "Conversation is active"}
-                                >
-                                  {isResolved ? 'Resolved' : 'Open'}
-                                </span>
-                              </div>
-                              <p className={`text-xs mt-1.5 truncate leading-normal ${unreadCount > 0 ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{lastMsg}</p>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  {selectedConv ? (
-                    <div className={`flex-1 flex flex-col bg-slate-50 min-w-0 ${!mobileChatView ? 'hidden md:flex' : 'flex'}`}>
-                      <div className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0 gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <button
-                            onClick={() => setMobileChatView(false)}
-                            className="md:hidden p-1.5 -ml-1 text-slate-500 hover:bg-slate-100 rounded-lg shrink-0 transition"
-                            title="Back to conversation list"
-                          >
-                            <ChevronLeft className="w-5 h-5" />
-                          </button>
-                          <span className="font-bold text-base text-slate-900 truncate">
-                            {selectedConv.visitorName || 'Visitor'}
-                          </span>
-                          {selectedConv.visitorEmail && (
-                            <span className="text-xs font-mono text-[#287170] bg-[#287170]/10 px-2.5 py-0.5 rounded-full border border-[#287170]/25 hidden sm:flex items-center gap-1.5" title={`Visitor Email: ${selectedConv.visitorEmail}`}>
-                              <Mail className="w-3.5 h-3.5" />
-                              <span className="truncate">{selectedConv.visitorEmail}</span>
-                            </span>
-                          )}
-                          {selectedConv.externalId && (
-                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 hidden sm:inline" title="Authenticated User ID">
-                              ✓ #{selectedConv.externalId}
-                            </span>
-                          )}
-                          <span className="text-xs text-slate-400 font-mono hidden xl:inline" title={`Visitor Session ID: ${selectedConv.visitorId}`}>
-                            ({selectedConv.visitorId.slice(0, 8)}...)
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={handleToggleStatus}
-                            className={`text-xs sm:text-sm px-3.5 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                              selectedConv.status === 'resolved'
-                                ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                                : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                            }`}
-                            title={selectedConv.status === 'resolved' ? "Reopen this conversation" : "Mark conversation as resolved"}
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>{selectedConv.status === 'resolved' ? 'Reopen' : 'Mark Resolved'}</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4">
-                        {messages.map((m) => {
-                          const isAgent = m.senderType === 'agent';
-                          return (
-                            <div key={m.id} className={`flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
-                              <div
-                                className={`max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                                  isAgent
-                                    ? 'bg-[#287170] text-white rounded-br-sm shadow-sm'
-                                    : 'bg-white text-slate-900 border border-slate-200 rounded-bl-sm shadow-xs'
-                                }`}
-                              >
-                                {m.content}
-                              </div>
-                              <span className="text-xs text-slate-600 font-medium mt-1.5 px-1">
-                                {isAgent ? 'You (Agent)' : (m.senderName || 'Visitor')} •{' '}
-                                {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        <div ref={chatBottomRef} />
-                      </div>
-
-                      {/* Visitor Typing Indicator */}
-                      {isVisitorTyping && (
-                        <div className="px-4 sm:px-6 py-2.5 text-sm font-medium text-[#287170] italic bg-[#287170]/5 flex items-center gap-2 border-t border-[#287170]/20 animate-pulse">
-                          <span className="w-2 h-2 rounded-full bg-[#287170]" />
-                          <span>Visitor is typing a reply...</span>
-                        </div>
-                      )}
-
-                      <form onSubmit={handleSendReply} className="p-3 sm:p-4 bg-white border-t border-slate-200 flex gap-2 sm:gap-3">
-                        <input
-                          type="text"
-                          value={replyText}
-                          onChange={(e) => {
-                            setReplyText(e.target.value);
-                            if (socket && selectedConv) {
-                              socket.emit('typing', { conversationId: selectedConv.id, senderType: 'agent', isTyping: true });
-                              clearTimeout(agentTypingTimeoutRef.current);
-                              agentTypingTimeoutRef.current = setTimeout(() => {
-                                socket.emit('typing', { conversationId: selectedConv.id, senderType: 'agent', isTyping: false });
-                              }, 1200);
-                            }
-                          }}
-                          placeholder="Type your reply to the visitor..."
-                          className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:border-[#287170] placeholder-slate-500"
-                        />
-                        <button
-                          type="submit"
-                          disabled={!replyText.trim()}
-                          className="bg-[#287170] hover:bg-[#205d5c] disabled:opacity-50 text-white px-5 sm:px-6 py-3 rounded-xl font-semibold text-base flex items-center gap-2 transition shrink-0 shadow-sm cursor-pointer"
-                        >
-                          <Send className="w-5 h-5" />
-                          <span className="hidden sm:inline">Send</span>
-                        </button>
-                      </form>
-                    </div>
-                  ) : (
-                    <div className="hidden md:flex flex-1 items-center justify-center text-slate-600 text-base font-medium bg-slate-50">
-                      Select a conversation to view messages.
-                    </div>
-                  )}
-                </div>
+                <ChatView
+                  filteredConversations={filteredConversations}
+                  conversations={conversations}
+                  fetchConversations={fetchConversations}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  unreadCounts={unreadCounts}
+                  selectedConv={selectedConv}
+                  handleSelectConversation={handleSelectConversation}
+                  mobileChatView={mobileChatView}
+                  setMobileChatView={setMobileChatView}
+                  handleToggleStatus={handleToggleStatus}
+                  messages={messages}
+                  chatBottomRef={chatBottomRef}
+                  isVisitorTyping={isVisitorTyping}
+                  handleSendReply={handleSendReply}
+                  replyText={replyText}
+                  setReplyText={setReplyText}
+                  socket={socket}
+                  agentTypingTimeoutRef={agentTypingTimeoutRef}
+                />
               )}
 
-              {/* TAB 2: WIDGET CUSTOMIZER (Pure Styling, No Danger Zone) */}
               {activeNav === 'customizer' && (
-                <div className="flex flex-col lg:flex-row h-full overflow-y-auto lg:overflow-hidden min-w-0">
-                  <div className="w-full lg:w-[440px] xl:w-[480px] border-b lg:border-b-0 lg:border-r border-slate-200 bg-white p-6 sm:p-8 overflow-y-visible lg:overflow-y-auto space-y-7 shrink-0">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">Brand Color</h3>
-                      <div className="mt-3 flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={settings.primaryColor}
-                          onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="w-11 h-11 p-0 rounded-xl cursor-pointer border border-slate-200"
-                          title="Select primary brand accent color"
-                        />
-                        <input
-                          type="text"
-                          value={settings.primaryColor}
-                          onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="font-mono text-sm px-3.5 py-2.5 border border-slate-200 rounded-xl w-32 text-slate-800 font-medium focus:outline-none focus:border-[#287170]"
-                          title="Hex color code"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="text-base font-bold text-slate-900">Titles & Greetings</h3>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Widget Title</label>
-                        <input
-                          type="text"
-                          value={settings.title}
-                          onChange={(e) => setSettings({ ...settings, title: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
-                          title="Main header title displayed inside the widget"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Subtitle</label>
-                        <input
-                          type="text"
-                          value={settings.subtitle}
-                          onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
-                          title="Secondary subtitle text in the widget header"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Greeting Message</label>
-                        <textarea
-                          value={settings.greeting}
-                          onChange={(e) => setSettings({ ...settings, greeting: e.target.value })}
-                          rows={3}
-                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
-                          title="Initial welcome message displayed to visitors opening chat"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3.5">
-                      <h3 className="text-base font-bold text-slate-900">Features</h3>
-                      <label className="flex items-center gap-3 cursor-pointer" title="Enable real-time messaging between visitors and operators">
-                        <input
-                          type="checkbox"
-                          checked={settings.enableChat}
-                          onChange={(e) => setSettings({ ...settings, enableChat: e.target.checked })}
-                          className="w-4 h-4 accent-[#287170] rounded cursor-pointer"
-                        />
-                        <span className="text-sm font-medium text-slate-800">Enable Live Chat</span>
-                      </label>
-                      <label className="flex items-center gap-3 cursor-pointer" title="Allow visitors to submit 1-to-5 star feedback ratings">
-                        <input
-                          type="checkbox"
-                          checked={settings.enableFeedback}
-                          onChange={(e) => setSettings({ ...settings, enableFeedback: e.target.checked })}
-                          className="w-4 h-4 accent-[#287170] rounded cursor-pointer"
-                        />
-                        <span className="text-sm font-medium text-slate-800">Enable Feedback Rating</span>
-                      </label>
-                      <label className="flex items-center gap-3 cursor-pointer" title="Allow visitors to submit bug reports with client runtime diagnostics">
-                        <input
-                          type="checkbox"
-                          checked={settings.enableBugReport}
-                          onChange={(e) => setSettings({ ...settings, enableBugReport: e.target.checked })}
-                          className="w-4 h-4 accent-[#287170] rounded cursor-pointer"
-                        />
-                        <span className="text-sm font-medium text-slate-800">Enable Bug Reporting</span>
-                      </label>
-                    </div>
-
-                    <button
-                      onClick={handleSaveSettings}
-                      disabled={savingSettings}
-                      className="w-full bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-2.5 rounded-xl text-sm shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                      title="Save widget branding, titles, and feature configuration"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>{savingSettings ? 'Saving...' : (saveSuccess ? 'Changes Saved' : 'Save Changes')}</span>
-                    </button>
-                  </div>
-
-                  {/* Live Preview */}
-                  {(() => {
-                    const previewContrast = getContrastColors(settings.primaryColor);
-                    return (
-                      <div className="flex-1 bg-slate-100 flex flex-col items-center justify-center p-6 sm:p-8 relative min-h-[580px] lg:min-h-0 space-y-4">
-                        <div className="w-[360px] h-[520px] bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden">
-                          <div
-                            style={{
-                              backgroundColor: settings.primaryColor,
-                              borderBottom: previewContrast.headerBorder
-                            }}
-                            className="p-4 flex items-center justify-between"
-                          >
-                            <div className="flex-1">
-                              <h4 className="font-bold text-base tracking-tight" style={{ color: previewContrast.text }}>
-                                {settings.title}
-                              </h4>
-                              <p className="text-sm mt-0.5 font-medium" style={{ color: previewContrast.textMuted }}>
-                                {settings.subtitle}
-                              </p>
-                            </div>
-                            <div
-                              style={{ background: previewContrast.closeBtnBg, color: previewContrast.text }}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold cursor-pointer"
-                            >
-                              ✕
-                            </div>
-                          </div>
-                          <div className="flex border-b border-slate-100 bg-slate-50 text-sm font-semibold">
-                            {settings.enableChat && (
-                              <div
-                                className="flex-1 py-2.5 text-center border-b-2 font-bold bg-white"
-                                style={{ color: previewContrast.activeTab, borderBottomColor: previewContrast.activeTab }}
-                              >
-                                💬 Chat
-                              </div>
-                            )}
-                            {settings.enableFeedback && <div className="flex-1 py-2.5 text-center text-slate-500 font-semibold">⭐ Feedback</div>}
-                            {settings.enableBugReport && <div className="flex-1 py-2.5 text-center text-slate-500 font-semibold">🐞 Bug Report</div>}
-                          </div>
-                          <div className="flex-1 bg-slate-50 p-4 space-y-3 flex flex-col justify-between">
-                            <div className="space-y-3">
-                              <div className="bg-white border border-slate-200 p-3 rounded-2xl text-xs text-slate-800 shadow-xs max-w-[85%] rounded-bl-sm">
-                                {settings.greeting}
-                              </div>
-                              <div
-                                style={{
-                                  backgroundColor: settings.primaryColor,
-                                  color: previewContrast.text,
-                                  border: previewContrast.bubbleBorder
-                                }}
-                                className="p-3 rounded-2xl text-xs shadow-xs max-w-[85%] ml-auto rounded-br-sm font-medium"
-                              >
-                                Visitor message sample
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 pt-2 border-t border-slate-200/70">
-                              <div className="flex-1 bg-white border border-slate-200 rounded-full px-3 py-1.5 text-xs text-slate-400">
-                                Type a message...
-                              </div>
-                              <div
-                                style={{
-                                  backgroundColor: settings.primaryColor,
-                                  color: previewContrast.text,
-                                  border: previewContrast.launcherBorder
-                                }}
-                                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-xs"
-                              >
-                                ➤
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-500 font-medium">Launcher Button:</span>
-                          <div
-                            style={{
-                              backgroundColor: settings.primaryColor,
-                              color: previewContrast.text,
-                              border: previewContrast.launcherBorder
-                            }}
-                            className="w-11 h-11 rounded-full shadow-md flex items-center justify-center font-bold text-sm"
-                          >
-                            💬
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
+                <CustomizerView
+                  settings={settings}
+                  setSettings={setSettings}
+                  handleSaveSettings={handleSaveSettings}
+                  savingSettings={savingSettings}
+                  saveSuccess={saveSuccess}
+                />
               )}
 
-              {/* TAB 3: FEEDBACK & BUGS */}
-              {activeNav === 'feedback' && (
-                <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-8 bg-slate-50">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2.5">
-                      <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                      <span>Customer Ratings & Reviews</span>
-                    </h3>
-                    {feedbacks.length === 0 ? (
-                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500 text-sm font-medium">
-                        No feedback received yet.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {feedbacks.map((f) => (
-                          <div key={f.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-                            <div className="flex items-center gap-1 text-amber-500" title={`Rating: ${f.rating} of 5 stars`}>
-                              {[...Array(f.rating)].map((_, i) => (
-                                <Star key={i} className="w-4 h-4 fill-amber-500" />
-                              ))}
-                            </div>
-                            <p className="text-sm text-slate-900 mt-2 font-medium leading-relaxed">"{f.comment}"</p>
-                            <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100 flex justify-between font-medium">
-                              <span>{f.userEmail || 'Anonymous'}</span>
-                              <span>{new Date(f.createdAt).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2.5">
-                      <Bug className="w-5 h-5 text-rose-500" />
-                      <span>Reported Issues</span>
-                    </h3>
-                    {bugs.length === 0 ? (
-                      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500 text-sm font-medium">
-                        No bugs reported yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {bugs.map((b) => (
-                          <div key={b.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-                            <div className="flex justify-between items-start">
-                              <h4 className="font-bold text-sm text-slate-900">{b.title}</h4>
-                              <span 
-                                className="text-xs bg-rose-50 text-rose-600 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-rose-100"
-                                title={`Status: ${b.status}`}
-                              >
-                                {b.status}
-                              </span>
-                            </div>
-                            <p className="text-sm text-slate-700 leading-relaxed">{b.description}</p>
-                            <div 
-                              className="mt-3 bg-slate-50 p-3 rounded-xl text-xs font-mono text-slate-600 space-y-1 border border-slate-100"
-                              title="Client runtime environment diagnostics"
-                            >
-                              <div><strong>URL:</strong> {b.url || 'N/A'}</div>
-                              <div><strong>Device:</strong> {b.device || 'N/A'}</div>
-                              <div className="truncate"><strong>User-Agent:</strong> {b.browser || 'N/A'}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 4: PRIVACY ANALYTICS */}
-              {activeNav === 'analytics' && (
-                <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 bg-slate-50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div 
-                      className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs"
-                      title="Total recorded pageview tracking events across all pages"
-                    >
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Pageviews</span>
-                      <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-2">{analytics.totalPageviews}</div>
-                      <p className="text-xs text-slate-500 mt-1.5 font-medium">Total pageview events recorded</p>
-                    </div>
-                    <div 
-                      className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs"
-                      title="Unique daily visitors identified using cookieless privacy-first hashes"
-                    >
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unique Daily Visitors</span>
-                      <div className="text-3xl sm:text-4xl font-extrabold text-[#287170] mt-2">{analytics.uniqueVisitors}</div>
-                      <p className="text-xs text-slate-500 mt-1.5 font-medium">Daily unique visitor count</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-xs">
-                    <h4 className="text-base font-bold text-slate-900 mb-4">Top Visited Pages</h4>
-                    {analytics.topPages && analytics.topPages.length > 0 ? (
-                      <div className="divide-y divide-slate-100">
-                        {analytics.topPages.map((p, idx) => (
-                          <div key={idx} className="py-3 flex justify-between items-center" title={`${p.count} views recorded on ${p.path}`}>
-                            <span className="font-mono text-slate-800 text-sm font-medium">{p.path}</span>
-                            <span className="font-semibold text-slate-900 text-sm">{p.count} views</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-slate-500 text-center py-8 font-medium">
-                        No analytics events recorded yet.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* TAB: PAGE RULES & DISPLAY */}
               {activeNav === 'page-rules' && (
-                <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 max-w-5xl bg-slate-50">
-                  {/* 1. Global Widget Configuration */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                      <div className="flex items-center gap-2.5">
-                        <h2 className="text-xl font-bold text-slate-900">Page Targeting</h2>
-                        <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#287170]/10 text-[#287170]">
-                          {activeSite.name}
-                        </span>
-                        <span 
-                          className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Control which pages display the SitePulse widget across your website without editing code"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                        </span>
-                      </div>
-
-                      {/* Master Widget Switch */}
-                      <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl shrink-0">
-                        <span className="text-sm font-semibold text-slate-700">
-                          {pageRules.enabled !== false ? 'Widget Active' : 'Widget Disabled'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setPageRules(prev => ({ ...prev, enabled: prev.enabled === false }))}
-                          title={pageRules.enabled !== false ? "Widget is enabled site-wide. Click to disable." : "Widget is disabled everywhere. Click to enable."}
-                          className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${
-                            pageRules.enabled !== false ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
-                          }`}
-                        >
-                          <div className="bg-white w-4 h-4 rounded-full shadow-sm transform transition" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* 2. Default Policy Selector */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm font-semibold text-slate-800">Default Visibility</label>
-                        <span 
-                          className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Determine whether new or unlisted URLs automatically show or hide the widget"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                        </span>
-                      </div>
-
-                      <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
-                        <button
-                          type="button"
-                          onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'allow' }))}
-                          title="Widget appears on all pages unless you explicitly add a rule to hide it below."
-                          className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer flex items-center gap-2 ${
-                            pageRules.defaultPolicy !== 'block'
-                              ? 'bg-white text-slate-900 shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${pageRules.defaultPolicy !== 'block' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                          <span>Show by Default</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPageRules(prev => ({ ...prev, defaultPolicy: 'block' }))}
-                          title="Widget is hidden across your site and only appears on pages you explicitly allow."
-                          className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer flex items-center gap-2 ${
-                            pageRules.defaultPolicy === 'block'
-                              ? 'bg-white text-slate-900 shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${pageRules.defaultPolicy === 'block' ? 'bg-rose-500' : 'bg-slate-300'}`} />
-                          <span>Hide by Default (Whitelist)</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3. Discovered Pages Table & Scanner */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                    <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
-                      <div className="flex items-center gap-2.5">
-                        <h3 className="text-base font-bold text-slate-900">Pages & Paths</h3>
-                        <span className="text-xs bg-slate-200/80 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">
-                          {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length}
-                        </span>
-                        <span 
-                          className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Auto-detected via website crawler and visitor traffic"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        {/* Search Box */}
-                        <div className="relative">
-                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
-                          <input
-                            type="text"
-                            placeholder="Filter paths..."
-                            value={pageSearchQuery}
-                            onChange={(e) => setPageSearchQuery(e.target.value)}
-                            className="bg-white border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#287170] w-44 sm:w-56 font-medium shadow-2xs"
-                          />
-                        </div>
-
-                        {/* Crawler Scan Button */}
-                        <button
-                          type="button"
-                          onClick={handleScanWebsite}
-                          disabled={scanningSite}
-                          className="px-4 py-2 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${scanningSite ? 'animate-spin' : ''}`} />
-                          <span>{scanningSite ? 'Scanning...' : 'Scan Website'}</span>
-                        </button>
-
-                        {/* Bulk Action Buttons */}
-                        {discoveredPages.length > 1 && (
-                          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2">
-                            <button
-                              type="button"
-                              onClick={() => handleBulkSetRules(true)}
-                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition cursor-pointer"
-                              title="Show widget on all discovered pages"
-                            >
-                              Enable All
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleBulkSetRules(false)}
-                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition cursor-pointer"
-                              title="Hide widget on all discovered pages"
-                            >
-                              Disable All
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Scan Feedback Banner */}
-                    {scanMessage && (
-                      <div className={`p-3 px-5 text-sm font-medium flex items-center justify-between border-b ${
-                        scanMessage.type === 'success' 
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-100' 
-                          : 'bg-rose-50 text-rose-800 border-rose-100'
-                      }`}>
-                        <span>{scanMessage.text}</span>
-                        <button onClick={() => setScanMessage(null)} className="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
-                      </div>
-                    )}
-
-                    {/* Pages Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600 tracking-wider">
-                            <th className="py-3 px-5">Path / Page</th>
-                            <th className="py-3 px-4">Source</th>
-                            <th className="py-3 px-4">Rule</th>
-                            <th className="py-3 px-5 text-right">Visibility</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-sm">
-                          {discoveredPages.filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase())).length === 0 ? (
-                            <tr>
-                              <td colSpan={4} className="py-12 text-center text-slate-500 text-sm">
-                                {pageSearchQuery ? 'No paths match your filter.' : 'No pages discovered yet. Click "Scan Website" to crawl your domain.'}
-                              </td>
-                            </tr>
-                          ) : (
-                            discoveredPages
-                              .filter(p => !pageSearchQuery || p.path.toLowerCase().includes(pageSearchQuery.toLowerCase()))
-                              .map((item) => {
-                                const path = item.path;
-                                const isExplicit = pageRules.rules?.[path] !== undefined;
-                                const isAllowed = isExplicit 
-                                  ? Boolean(pageRules.rules[path])
-                                  : pageRules.defaultPolicy !== 'block';
-
-                                return (
-                                  <tr key={path} className="hover:bg-slate-50/75 transition-colors">
-                                    <td className="py-3.5 px-5">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="font-mono text-sm font-semibold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/80">
-                                          {path}
-                                        </span>
-                                        {path === '/' && (
-                                          <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                            Home
-                                          </span>
-                                        )}
-                                        {item.views > 0 && (
-                                          <span className="text-xs text-slate-500 font-medium">
-                                            ({item.views} {item.views === 1 ? 'view' : 'views'})
-                                          </span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="py-3.5 px-4">
-                                      {item.source === 'traffic' ? (
-                                        <span 
-                                          className="inline-flex items-center text-xs font-medium text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-100"
-                                          title="Discovered from real visitor page views"
-                                        >
-                                          Traffic
-                                        </span>
-                                      ) : item.source === 'crawler' ? (
-                                        <span 
-                                          className="inline-flex items-center text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100"
-                                          title="Discovered from website crawler"
-                                        >
-                                          Crawler
-                                        </span>
-                                      ) : item.source === 'custom_rule' ? (
-                                        <span 
-                                          className="inline-flex items-center text-xs font-medium text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100"
-                                          title="Custom wildcard or path pattern"
-                                        >
-                                          Pattern
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center text-xs font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
-                                          Root
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="py-3.5 px-4 text-xs font-medium">
-                                      {isExplicit ? (
-                                        <span className="text-slate-800 font-semibold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Override</span>
-                                      ) : (
-                                        <span className="text-slate-500 font-medium">Default</span>
-                                      )}
-                                    </td>
-                                    <td className="py-3.5 px-5 text-right">
-                                      <div className="flex items-center justify-end gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleTogglePageRule(path)}
-                                          title={isAllowed ? "Click to hide widget on this path" : "Click to show widget on this path"}
-                                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
-                                            isAllowed
-                                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                              : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                                          }`}
-                                        >
-                                          {isAllowed ? (
-                                            <>
-                                              <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                                              <span>Visible</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <EyeOff className="w-3.5 h-3.5 text-rose-600" />
-                                              <span>Hidden</span>
-                                            </>
-                                          )}
-                                        </button>
-                                        {(isExplicit || item.source === 'custom_rule') && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRemovePageRule(path, item.source === 'custom_rule')}
-                                            title={item.source === 'custom_rule' ? "Delete custom rule" : "Reset override to default"}
-                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition border border-transparent hover:border-rose-200 cursor-pointer"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* 4. Add Custom Wildcard / Pattern Rule */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-3.5">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-slate-900">Add Pattern Rule</h3>
-                        <span 
-                          className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Pre-emptively show or hide the widget on specific paths or patterns (e.g. /checkout/*, /admin/*)"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                        </span>
-                      </div>
-                    </div>
-
-                    <form onSubmit={handleAddCustomPattern} className="flex flex-col sm:flex-row items-center gap-3">
-                      <div className="relative flex-1 w-full">
-                        <input
-                          type="text"
-                          placeholder="e.g. /checkout/* or /login or *.html"
-                          value={customPatternInput}
-                          onChange={(e) => setCustomPatternInput(e.target.value)}
-                          className="w-full font-mono text-sm px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] font-medium"
-                        />
-                      </div>
-                      <select
-                        value={customPatternAction}
-                        onChange={(e) => setCustomPatternAction(e.target.value)}
-                        className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#287170] cursor-pointer"
-                      >
-                        <option value="block">Hide Widget</option>
-                        <option value="allow">Show Widget</option>
-                      </select>
-                      <button
-                        type="submit"
-                        className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Add Pattern</span>
-                      </button>
-                    </form>
-
-                    {/* Quick suggestion chips */}
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-600">
-                      <span className="font-semibold text-slate-700">Examples:</span>
-                      {['/checkout/*', '/admin/*', '/login', '/pricing', '*.html'].map((chip) => (
-                        <button
-                          key={chip}
-                          type="button"
-                          onClick={() => setCustomPatternInput(chip)}
-                          className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs cursor-pointer transition border border-slate-200/60"
-                        >
-                          {chip}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 5. Save Rules Bar */}
-                  <div className="sticky bottom-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-md p-3.5 px-5 flex items-center justify-between gap-3">
-                    <div className="text-xs sm:text-sm font-medium text-slate-600">
-                      {pageRulesSaved ? (
-                        <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          <span>Rules saved</span>
-                        </span>
-                      ) : (
-                        <span>Configure page rules and save when ready.</span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSavePageRules}
-                      disabled={savingPageRules}
-                      className="px-5 py-2 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
-                    >
-                      {savingPageRules ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4" />
-                          <span>Save Rules</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
+                <PageRulesView
+                  activeSite={activeSite}
+                  pageRules={pageRules}
+                  setPageRules={setPageRules}
+                  discoveredPages={discoveredPages}
+                  pageSearchQuery={pageSearchQuery}
+                  setPageSearchQuery={setPageSearchQuery}
+                  handleScanWebsite={handleScanWebsite}
+                  scanningSite={scanningSite}
+                  scanMessage={scanMessage}
+                  setScanMessage={setScanMessage}
+                  handleBulkSetRules={handleBulkSetRules}
+                  handleTogglePageRule={handleTogglePageRule}
+                  handleRemovePageRule={handleRemovePageRule}
+                  customPatternInput={customPatternInput}
+                  setCustomPatternInput={setCustomPatternInput}
+                  customPatternAction={customPatternAction}
+                  setCustomPatternAction={setCustomPatternAction}
+                  handleAddCustomPattern={handleAddCustomPattern}
+                  pageRulesSaved={pageRulesSaved}
+                  handleSavePageRules={handleSavePageRules}
+                  savingPageRules={savingPageRules}
+                />
               )}
 
-              {/* TAB 5: PROPERTY SETTINGS & DANGER ZONE */}
+              {activeNav === 'feedback' && (
+                <FeedbackView
+                  feedbacks={feedbacks}
+                  bugs={bugs}
+                />
+              )}
+
+              {activeNav === 'analytics' && (
+                <AnalyticsView
+                  analytics={analytics}
+                />
+              )}
+
               {activeNav === 'settings' && (
-                <div className="p-5 sm:p-8 overflow-y-auto h-full space-y-6 max-w-4xl bg-slate-50">
-                  {/* Property Details (Name only, Domain moved to Danger Zone) */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-9 h-9 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
-                        <Globe className="w-4 h-4" />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900">Website Details</h3>
-                        <span 
-                          className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Manage your website display name"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                        </span>
-                      </div>
-                    </div>
-
-                    <form onSubmit={handleUpdateSiteName} className="space-y-4 pt-1">
-                      {siteDetailsMessage && (
-                        <div className={`p-3 px-4 rounded-xl text-sm font-medium flex items-center justify-between border ${
-                          siteDetailsMessage.type === 'success'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-rose-50 text-rose-800 border-rose-200'
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            {siteDetailsMessage.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-                            <span>{siteDetailsMessage.text}</span>
-                          </div>
-                          <button type="button" onClick={() => setSiteDetailsMessage(null)} className="text-slate-400 hover:text-slate-600 text-sm font-bold ml-2">✕</button>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                            Website Name
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={siteDetailsForm.name}
-                            onChange={(e) => setSiteDetailsForm(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="e.g. My Online Store"
-                            className="w-full text-sm font-medium text-slate-900 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
-                            title="The display name of your website property"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-sm font-semibold text-slate-700">
-                              Registered Domain
-                            </label>
-                            <span 
-                              className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200"
-                              title="Domain URL modifications are managed in the Danger Zone"
-                            >
-                              Protected
-                            </span>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              readOnly
-                              value={activeSite.domain}
-                              className="w-full text-sm font-mono font-medium text-slate-600 bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl cursor-not-allowed select-all"
-                              title="To modify this domain URL, use the Change Domain action in the Danger Zone below"
-                            />
-                            <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
-                            <span>To change this domain, use</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const el = document.getElementById('danger-zone-section');
-                                if (el) el.scrollIntoView({ behavior: 'smooth' });
-                              }}
-                              className="text-[#287170] hover:underline font-semibold cursor-pointer"
-                              title="Scroll to Danger Zone"
-                            >
-                              Danger Zone below ↓
-                            </button>
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end pt-1">
-                        <button
-                          type="submit"
-                          disabled={savingSiteDetails}
-                          className="px-5 py-2.5 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                          title="Save updated website name"
-                        >
-                          {savingSiteDetails ? (
-                            <>
-                              <RefreshCw className="w-4 h-4 animate-spin" />
-                              <span>Saving...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Check className="w-4 h-4" />
-                              <span>Save Name</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-
-                  {/* Site Key Card */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-9 h-9 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
-                        <Key className="w-4 h-4" />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900">Site Key</h3>
-                        <span 
-                          className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Embedded in your client-side website code to authenticate the widget"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={activeSite.apiKey}
-                        className="flex-1 bg-slate-50 border border-slate-200 font-mono text-sm px-3.5 py-2.5 rounded-xl text-slate-900 font-semibold select-all"
-                        title="Your public site key"
-                      />
-                      <button
-                        onClick={copyEmbedCode}
-                        className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer"
-                        title="Copy public API key to clipboard"
-                      >
-                        {copiedSnippet ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#287170]" />}
-                        <span>{copiedSnippet ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Embed Script Integration */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-                    <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                      <div className="w-9 h-9 rounded-xl bg-[#287170]/10 text-[#287170] flex items-center justify-center">
-                        <Code2 className="w-4 h-4" />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900">HTML Embed Script</h3>
-                        <span 
-                          className="text-slate-400 hover:text-slate-600 cursor-help"
-                          title="Insert this single line right before the closing </body> tag on your website"
-                        >
-                          <HelpCircle className="w-4 h-4" />
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <pre className="p-4 bg-slate-50 border border-slate-200 text-slate-800 rounded-xl font-mono text-sm overflow-x-auto leading-relaxed select-all">
-                        {`<script src="${BACKEND_URL}/sitepulse.js" data-site-key="${activeSite.apiKey}" defer></script>`}
-                      </pre>
-                      <button
-                        onClick={copyEmbedCode}
-                        className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-slate-200 shadow-xs cursor-pointer"
-                        title="Copy HTML embed script tag"
-                      >
-                        {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#287170]" />}
-                        <span>{copiedSnippet ? 'Copied' : 'Copy Code'}</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm">
-                      <div className="flex items-center gap-2 text-slate-700 font-medium">
-                        <Layers className="w-4 h-4 text-[#287170]" />
-                        <span>Configure page targeting and display rules</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveNav('page-rules')}
-                        className="text-[#287170] hover:text-[#205d5c] font-bold flex items-center gap-1 cursor-pointer"
-                        title="Open Page Rules & Display settings"
-                      >
-                        <span>Page Rules →</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Danger Zone: Sensitive & Destructive Actions */}
-                  <div id="danger-zone-section" className="bg-white rounded-2xl border border-rose-200 shadow-xs overflow-hidden">
-                    <div className="p-5 border-b border-rose-100 bg-rose-50/40 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <AlertTriangle className="w-5 h-5 text-rose-600" />
-                        <h3 className="text-base font-bold text-slate-900">Danger Zone</h3>
-                      </div>
-                      <span 
-                        className="text-xs font-semibold text-rose-700 bg-rose-100/80 px-2.5 py-0.5 rounded-full"
-                        title="Actions in this section can alter domain origin security or permanently erase data"
-                      >
-                        Sensitive & Irreversible
-                      </span>
-                    </div>
-
-                    <div className="divide-y divide-slate-100">
-                      {/* Action 1: Change Domain URL */}
-                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-amber-50/20">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-semibold text-slate-900">Change Domain URL</h4>
-                            <span className="text-xs font-mono font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                              {activeSite.domain}
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                            Update the authorized domain for this site. The embed widget will validate and run on the new domain.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={promptChangeDomain}
-                          className="px-4 py-2 border border-amber-300 hover:border-amber-400 bg-white hover:bg-amber-50 text-amber-900 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 cursor-pointer shadow-2xs"
-                          title="Change the registered domain for this website property"
-                        >
-                          <Globe className="w-4 h-4 text-amber-700" />
-                          <span>Change Domain</span>
-                        </button>
-                      </div>
-
-                      {/* Action 2: Delete All Chats */}
-                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <h4 className="text-sm font-semibold text-slate-900">Clear Conversations</h4>
-                          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                            Permanently clear all visitor conversation threads and messages for this site. Feedback and analytics remain intact.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => promptDeleteChats(activeSite)}
-                          className="px-4 py-2 border border-slate-300 hover:border-rose-300 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 cursor-pointer shadow-2xs"
-                          title="Permanently remove all visitor messages and chat sessions"
-                        >
-                          <MessageSquareX className="w-4 h-4 text-rose-500" />
-                          <span>Clear Chats</span>
-                        </button>
-                      </div>
-
-                      {/* Action 3: Delete Entire Website Property */}
-                      <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-rose-50/25">
-                        <div>
-                          <h4 className="text-sm font-semibold text-rose-950">Delete Website Property</h4>
-                          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                            Permanently delete <strong className="text-slate-800">{activeSite.name}</strong> ({activeSite.domain}) and all associated data, settings, and metrics.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => promptDeleteSite(activeSite)}
-                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-sm transition flex items-center gap-2 shrink-0 shadow-xs cursor-pointer"
-                          title="Permanently erase this website and all associated records"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete Website</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <SettingsView
+                  activeSite={activeSite}
+                  BACKEND_URL={BACKEND_URL}
+                  siteDetailsForm={siteDetailsForm}
+                  setSiteDetailsForm={setSiteDetailsForm}
+                  siteDetailsMessage={siteDetailsMessage}
+                  setSiteDetailsMessage={setSiteDetailsMessage}
+                  savingSiteDetails={savingSiteDetails}
+                  handleUpdateSiteName={handleUpdateSiteName}
+                  copiedSnippet={copiedSnippet}
+                  copyEmbedCode={copyEmbedCode}
+                  setActiveNav={setActiveNav}
+                  promptChangeDomain={promptChangeDomain}
+                  promptDeleteChats={promptDeleteChats}
+                  promptDeleteSite={promptDeleteSite}
+                />
               )}
             </>
           )}
         </div>
       </main>
 
-      {/* Change Domain URL Modal (Danger Zone Action) */}
-      {changeDomainModal.open && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 w-full max-w-md p-6 sm:p-7 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
-                <Globe className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Change Domain URL</h3>
-                <p className="text-xs text-slate-500 font-medium">Danger Zone: Update website authorization domain</p>
-              </div>
-            </div>
+      {/* Danger Zone: Change Domain Modal */}
+      <ChangeDomainModal
+        changeDomainModal={changeDomainModal}
+        setChangeDomainModal={setChangeDomainModal}
+        activeSite={activeSite}
+        handleConfirmChangeDomain={handleConfirmChangeDomain}
+      />
 
-            {changeDomainModal.error && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
-                {changeDomainModal.error}
-              </div>
-            )}
+      {/* Add New Website Modal */}
+      <NewSiteModal
+        showNewSiteModal={showNewSiteModal}
+        setShowNewSiteModal={setShowNewSiteModal}
+        newSiteForm={newSiteForm}
+        setNewSiteForm={setNewSiteForm}
+        handleCreateSite={handleCreateSite}
+      />
 
-            <form onSubmit={handleConfirmChangeDomain} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                  Current Domain
-                </label>
-                <div className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-mono text-slate-700">
-                  {activeSite?.domain}
-                </div>
-              </div>
+      {/* Danger Zone: Delete Website Property Modal */}
+      <DeleteSiteModal
+        deleteSiteModal={deleteSiteModal}
+        setDeleteSiteModal={setDeleteSiteModal}
+        handleConfirmDeleteSite={handleConfirmDeleteSite}
+      />
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  New Domain / URL
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="e.g. store.com or localhost:3000"
-                  value={changeDomainModal.domain}
-                  onChange={(e) => setChangeDomainModal(prev => ({ ...prev, domain: e.target.value }))}
-                  className="w-full text-sm font-mono font-medium px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setChangeDomainModal({ open: false, domain: '', error: '', loading: false })}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={changeDomainModal.loading}
-                  className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {changeDomainModal.loading ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Updating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Update Domain</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* New Site Modal */}
-      {showNewSiteModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 sm:p-7">
-            <h3 className="text-lg sm:text-xl font-bold text-slate-900">Add New Website</h3>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">Register a domain to generate an embed key.</p>
-
-            <form onSubmit={handleCreateSite} className="mt-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Website Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. My Online Store"
-                  value={newSiteForm.name}
-                  onChange={(e) => setNewSiteForm({ ...newSiteForm, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Domain</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. store.com or localhost:3000"
-                  value={newSiteForm.domain}
-                  onChange={(e) => setNewSiteForm({ ...newSiteForm, domain: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowNewSiteModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-semibold bg-[#287170] hover:bg-[#205d5c] text-white rounded-xl shadow-xs transition cursor-pointer"
-                >
-                  Add Website
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Site Confirmation Modal (Password Verification) */}
-      {deleteSiteModal.open && deleteSiteModal.site && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-rose-100 w-full max-w-md p-7">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900">Delete Website Property</h3>
-            <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-              You are about to permanently delete <strong className="text-slate-900">{deleteSiteModal.site.name}</strong> ({deleteSiteModal.site.domain}). All associated conversations, feedback ratings, and visitor analytics will be permanently erased.
-            </p>
-
-            {deleteSiteModal.error && (
-              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
-                {deleteSiteModal.error}
-              </div>
-            )}
-
-            <form onSubmit={handleConfirmDeleteSite} className="mt-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  Confirm Admin Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="password"
-                    required
-                    autoFocus
-                    placeholder="Enter your admin account password"
-                    value={deleteSiteModal.password}
-                    onChange={(e) => setDeleteSiteModal(prev => ({ ...prev, password: e.target.value, error: '' }))}
-                    className="w-full px-3.5 pl-10 py-2.5 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setDeleteSiteModal({ open: false, site: null, password: '', error: '', loading: false })}
-                  className="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={deleteSiteModal.loading || !deleteSiteModal.password}
-                  className="px-5 py-2.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  {deleteSiteModal.loading ? 'Verifying...' : 'Confirm & Delete'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete All Chats Confirmation Modal (Password Verification) */}
-      {deleteChatsModal.open && deleteChatsModal.site && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-rose-100 w-full max-w-md p-7">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
-              <MessageSquareX className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900">Delete All Conversations</h3>
-            <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-              You are about to permanently delete all conversations and message transcripts for <strong className="text-slate-900">{deleteChatsModal.site.name}</strong>. Feedback ratings, bug reports, and analytics will not be affected.
-            </p>
-
-            {deleteChatsModal.error && (
-              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
-                {deleteChatsModal.error}
-              </div>
-            )}
-
-            <form onSubmit={handleConfirmDeleteChats} className="mt-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  Confirm Admin Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="password"
-                    required
-                    autoFocus
-                    placeholder="Enter your admin account password"
-                    value={deleteChatsModal.password}
-                    onChange={(e) => setDeleteChatsModal(prev => ({ ...prev, password: e.target.value, error: '' }))}
-                    className="w-full px-3.5 pl-10 py-2.5 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setDeleteChatsModal({ open: false, site: null, password: '', error: '', loading: false })}
-                  className="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={deleteChatsModal.loading || !deleteChatsModal.password}
-                  className="px-5 py-2.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  {deleteChatsModal.loading ? 'Deleting...' : 'Confirm & Delete All Chats'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Danger Zone: Clear All Chats Modal */}
+      <DeleteChatsModal
+        deleteChatsModal={deleteChatsModal}
+        setDeleteChatsModal={setDeleteChatsModal}
+        handleConfirmDeleteChats={handleConfirmDeleteChats}
+      />
     </div>
   );
 }
