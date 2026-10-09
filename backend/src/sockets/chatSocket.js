@@ -3,33 +3,41 @@ const prisma = require('../db');
 function registerChatSocket(io) {
   io.on('connection', (socket) => {
     // Admin or Visitor joins site-wide configuration room
-    socket.on('join_site_admin', ({ siteKey }) => {
+    socket.on('join_site_admin', (data) => {
+      const siteKey = data && data.siteKey;
       if (siteKey) {
         socket.join(`site_${siteKey}`);
       }
     });
 
-    socket.on('join_site', ({ siteKey }) => {
+    socket.on('join_site', (data) => {
+      const siteKey = data && data.siteKey;
       if (siteKey) {
         socket.join(`site_${siteKey}`);
       }
     });
 
     // Visitor or Agent joins specific conversation room
-    socket.on('join_conversation', ({ conversationId }) => {
+    socket.on('join_conversation', (data) => {
+      const conversationId = data && data.conversationId;
       if (conversationId) {
         socket.join(`conv_${conversationId}`);
       }
     });
 
     // Typing indicator
-    socket.on('typing', ({ conversationId, senderType, isTyping }) => {
-      socket.to(`conv_${conversationId}`).emit('typing', { senderType, isTyping });
+    socket.on('typing', (data) => {
+      if (!data) return;
+      const { conversationId, senderType, isTyping } = data;
+      if (conversationId) {
+        socket.to(`conv_${conversationId}`).emit('typing', { senderType, isTyping });
+      }
     });
 
     // Sending message
     socket.on('send_message', async (data) => {
       try {
+        if (!data) return;
         const { conversationId, siteKey, senderType, content, senderName } = data;
         if (!conversationId || !content || typeof content !== 'string') return;
         const trimmed = content.trim();

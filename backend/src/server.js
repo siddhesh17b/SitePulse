@@ -88,7 +88,25 @@ app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/widget') || req.path.startsWith('/demo') || req.path === '/sitepulse.js') {
     return next();
   }
-  res.sendFile(path.join(dashboardDist, 'index.html'));
+  const indexPath = path.join(dashboardDist, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  res.status(200).send('SitePulse API and Gateway running. Dashboard build not found.');
+});
+
+// Unhandled API Route 404
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// Centralized Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('[Server Error]', err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error'
+  });
 });
 
 const PORT = process.env.PORT || 5000;

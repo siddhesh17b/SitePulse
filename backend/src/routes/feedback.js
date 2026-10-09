@@ -14,12 +14,17 @@ router.post('/', async (req, res) => {
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
 
+    const parsedRating = parseInt(rating, 10);
+    if (isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({ error: 'Rating must be an integer between 1 and 5' });
+    }
+
     const feedback = await prisma.feedback.create({
       data: {
         siteId: site.id,
-        rating: parseInt(rating, 10),
-        comment,
-        userEmail: userEmail || null
+        rating: parsedRating,
+        comment: String(comment).trim(),
+        userEmail: userEmail ? String(userEmail).trim() : null
       }
     });
 
