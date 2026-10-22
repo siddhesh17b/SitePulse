@@ -136,9 +136,9 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   logger.info({ port: PORT }, 'SitePulse server listening');
   console.log(`===============================================`);
-  console.log(`🚀 SitePulse Production Server running on port ${PORT}`);
-  console.log(`📊 Unified Dashboard at: http://localhost:${PORT}/`);
-  console.log(`📡 Socket.IO gateway ready on port ${PORT}`);
-  console.log(`📦 Widget served at: http://localhost:${PORT}/sitepulse.js`);
+  console.log(`SitePulse Production Server running on port ${PORT}`);
+  console.log(`Unified Dashboard at: \x1b[32mhttp://localhost:${PORT}/\x1b[0m`);
+  console.log(`Socket.IO gateway ready on port ${PORT}`);
+  console.log(`Widget served at: http://localhost:${PORT}/sitepulse.js`);
   console.log(`===============================================`);
 });
