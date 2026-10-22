@@ -14,6 +14,15 @@ if (process.env.DASHBOARD_URL) {
   defaultAllowedOrigins.push(process.env.DASHBOARD_URL.trim());
 }
 
+if (process.env.RENDER_EXTERNAL_URL) {
+  defaultAllowedOrigins.push(process.env.RENDER_EXTERNAL_URL.trim());
+}
+
+if (process.env.RENDER_EXTERNAL_HOSTNAME) {
+  defaultAllowedOrigins.push(`https://${process.env.RENDER_EXTERNAL_HOSTNAME.trim()}`);
+  defaultAllowedOrigins.push(`http://${process.env.RENDER_EXTERNAL_HOSTNAME.trim()}`);
+}
+
 if (process.env.ALLOWED_ORIGINS) {
   process.env.ALLOWED_ORIGINS.split(',').forEach((orig) => {
     if (orig.trim()) defaultAllowedOrigins.push(orig.trim());
@@ -28,26 +37,43 @@ const publicCors = cors({
   exposedHeaders: ['X-Request-ID']
 });
 
-// Admin CORS: Restricted to authorized dashboard hosts and same-origin requests
-const adminCors = cors({
-  origin: (origin, callback) => {
-    // Requests without origin (e.g. mobile apps, curl, server-to-server, same-origin)
-    if (!origin) return callback(null, true);
+// Admin CORS: Dynamic detection of same-origin (custom domains/VPS), authorized hosts & Render
+const adminCors = cors((req, callback) => {
+  const origin = req.headers.origin;
 
-    const isAllowed = defaultAllowedOrigins.some((allowed) => {
-      return origin === allowed || origin.endsWith(allowed.replace(/^https?:\/\//, ''));
+  // Requests without origin (e.g. mobile apps, curl, server-to-server)
+  if (!origin) {
+    return callback(null, { origin: true });
+  }
+
+  // Same-Origin auto-allowance for self-hosters / custom domains:
+  // If the origin matches the host header (e.g., https://support.mycompany.com)
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const isSameOrigin = Boolean(
+    host && (
+      origin === `http://${host}` ||
+      origin === `https://${host}` ||
+      origin.endsWith(`://${host}`)
+    )
+  );
+
+  const isAllowed = defaultAllowedOrigins.some((allowed) => {
+    return origin === allowed || origin.endsWith(allowed.replace(/^https?:\/\//, ''));
+  });
+
+  const isRender = origin.endsWith('.onrender.com');
+
+  if (isSameOrigin || isAllowed || isRender || process.env.NODE_ENV === 'test') {
+    return callback(null, {
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      exposedHeaders: ['X-Request-ID']
     });
+  }
 
-    if (isAllowed || process.env.NODE_ENV === 'test') {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS blocked: Origin ${origin} not authorized for Admin API`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-  exposedHeaders: ['X-Request-ID']
+  return callback(new Error(`CORS blocked: Origin ${origin} not authorized for Admin API`));
 });
 
 module.exports = {

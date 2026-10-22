@@ -1,8 +1,34 @@
-node_modules
-*/node_modules
-dist
-*/dist
-.git
-.env
+# Git & Version Control
+**/.git
+
+# Dependencies
+**/node_modules
+
+# Build Outputs & Bundles
+**/dist
+**/build
+**/.vite
+
+# Environment variables & secrets
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+
+# Logs
 *.log
-references
+logs/
+npm-debug.log*
+
+# Documentation & large static assets
+demo-site/
+references/
+docs/
+*.pdf
+*.pptx
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.sw?

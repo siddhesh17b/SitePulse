@@ -42,5 +42,5 @@ COPY --from=dashboard-builder /app/dashboard/dist /app/dashboard/dist
 # Expose single unified port
 EXPOSE 5000
 
-# Entrypoint script to run migrations and start server
-CMD ["sh", "-c", "npx prisma db push && node src/server.js"]
+# Entrypoint script to push schema and start unified server
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node src/server.js"]

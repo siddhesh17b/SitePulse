@@ -180,9 +180,104 @@ This single process hosts:
 
 ---
 
-## Docker Compose Quick Start
+## Deployment Guide for Website Owners
 
-To spin up both PostgreSQL and the unified SitePulse container:
+SitePulse can be deployed to the cloud in minutes. Choose the deployment method that fits your infrastructure:
+
+### Option A: Cloud PaaS Deployment (Render, Railway, Fly.io)
+
+Using the production [`Dockerfile`](Dockerfile):
+
+1. **Provision a PostgreSQL Database**:
+   - In your cloud provider (e.g., Render, Supabase, Neon, Railway), create a new PostgreSQL database.
+   - Copy the database connection string (`DATABASE_URL`).
+2. **Create a Docker Web Service**:
+   - Connect your SitePulse repository.
+   - Select **Docker** as the deployment runtime.
+3. **Configure Environment Variables**:
+   Set the following variables in your provider's settings:
+   ```env
+   DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
+   JWT_SECRET="generate-a-secure-random-32-char-secret"
+   DAILY_SALT="generate-a-random-salt-for-cookieless-analytics"
+   NODE_ENV="production"
+   ```
+4. **Deploy**:
+   - Your provider will execute the multi-stage build, compile the dashboard SPA, push database schemas via Prisma, and bring your unified server online with automatic HTTPS.
+
+---
+
+### Option B: Self-Hosted VPS Deployment (Docker Compose + Nginx/Caddy)
+
+For website owners hosting on their own Linux VPS (DigitalOcean Droplet, Hetzner, AWS EC2, Linode):
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/your-username/SitePulse.git
+   cd SitePulse
+   ```
+2. **Configure Environment Variables**:
+   Create a `.env` file in the root directory:
+   ```env
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=your_strong_db_password
+   POSTGRES_DB=sitepulse
+   JWT_SECRET=your_super_secret_jwt_key
+   DAILY_SALT=your_privacy_analytics_salt
+   ```
+3. **Start the Stack**:
+   ```bash
+   docker compose up -d --build
+   ```
+   *This starts PostgreSQL on port `5432` with a persistent volume (`sitepulse_pgdata`) and the unified SitePulse platform on port `5000`.*
+4. **Set Up an HTTPS Reverse Proxy (Caddy or Nginx)**:
+   - **Using Caddy (Automatic Free SSL)**:
+     ```caddyfile
+     support.yourdomain.com {
+         reverse_proxy localhost:5000
+     }
+     ```
+   - **Using Nginx**:
+     ```nginx
+     server {
+         server_name support.yourdomain.com;
+
+         location / {
+             proxy_pass http://localhost:5000;
+             proxy_http_version 1.1;
+             proxy_set_header Upgrade $http_upgrade;
+             proxy_set_header Connection "upgrade";
+             proxy_set_header Host $host;
+             proxy_set_header X-Real-IP $remote_addr;
+             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+             proxy_set_header X-Forwarded-Proto $scheme;
+         }
+     }
+     ```
+
+---
+
+## Embed the Widget on Your Website
+
+Once your SitePulse instance is running, embed the support widget on any website (WordPress, Shopify, Webflow, Next.js, or custom HTML):
+
+1. Log into your SitePulse dashboard and create a new **Website Property**.
+2. Copy your site's embed snippet from the **Settings** tab.
+3. Paste it directly before the closing `</body>` tag on your website:
+
+```html
+<!-- Replace with your deployed SitePulse URL and Site Key -->
+<script src="https://support.yourdomain.com/sitepulse.js" data-site-key="YOUR_SITE_KEY" defer></script>
+```
+
+- **Universal Compatibility**: Works on any domain or CMS with zero CSS conflicts (powered by native Shadow DOM).
+- **Zero Config**: The widget automatically detects its own origin to communicate with your backend API and Socket.IO gateway.
+
+---
+
+## Docker Compose Quick Start (Local Testing)
+
+To spin up both PostgreSQL and the unified SitePulse container locally:
 
 ```bash
 docker compose up --build
@@ -194,30 +289,6 @@ docker compose up --build
 ---
 
 ## Automated Verification & Testing
-
-SitePulse includes a full-system automated verification suite covering infrastructure, auth, multi-tenant isolation, public widget endpoints, analytics aggregation, Socket.IO messaging, and danger zone deletions:
-
-```bash
-# Run backend test suite (34 automated tests):
-npm test
-
-# Verify dashboard compilation:
-npm run build:dashboard
-```
-
----
-
-## Embed the Widget on Your Website
-
-Add this single `<script>` snippet just before the closing `</body>` tag of your website:
-
-```html
-<script src="http://localhost:5000/sitepulse.js" data-site-key="YOUR_SITE_KEY" defer></script>
-```
-
-You can copy the pre-configured snippet for any registered site directly from the **Website Property Settings** tab in your dashboard.
-
----
 
 ## Useful Scripts Reference
 
