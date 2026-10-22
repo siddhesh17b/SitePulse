@@ -3,14 +3,13 @@ const router = express.Router();
 const crypto = require('crypto');
 const prisma = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { validateBody } = require('../middleware/validate');
+const { trackEventSchema } = require('../schemas/events.schema');
 
 // Public: Beacon sent from widget to track pageview (cookieless session hash)
-router.post('/', async (req, res) => {
+router.post('/', validateBody(trackEventSchema), async (req, res) => {
   try {
     const { siteKey, pathname, referrer, browser, os, deviceType } = req.body;
-    if (!siteKey || !pathname) {
-      return res.status(400).json({ error: 'siteKey and pathname are required' });
-    }
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
@@ -44,7 +43,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Protected: Aggregate analytics summary for a site
+// Protected: Aggregate analytics summary for a site (Database Query Aggregation)
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const { siteKey } = req.query;
@@ -52,30 +51,38 @@ router.get('/stats', authMiddleware, async (req, res) => {
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to view analytics for this site' });
+    }
 
     const totalPageviews = await prisma.analyticsEvent.count({
       where: { siteId: site.id }
     });
 
-    const events = await prisma.analyticsEvent.findMany({
+    // Database-level grouping for top visited pages
+    const groupedPages = await prisma.analyticsEvent.groupBy({
+      by: ['pathname'],
       where: { siteId: site.id },
-      select: { sessionHash: true, pathname: true, referrer: true, browser: true, deviceType: true }
+      _count: { pathname: true },
+      orderBy: { _count: { pathname: 'desc' } },
+      take: 5
     });
 
-    const uniqueSessions = new Set(events.map(e => e.sessionHash)).size;
-    const pageCounts = {};
-    events.forEach(e => {
-      pageCounts[e.pathname] = (pageCounts[e.pathname] || 0) + 1;
-    });
+    const topPages = groupedPages.map((g) => ({
+      path: g.pathname,
+      count: g._count.pathname
+    }));
 
-    const topPages = Object.entries(pageCounts)
-      .map(([path, count]) => ({ path, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+    // Database-level grouping for unique daily visitor sessions
+    const groupedSessions = await prisma.analyticsEvent.groupBy({
+      by: ['sessionHash'],
+      where: { siteId: site.id }
+    });
+    const uniqueVisitors = groupedSessions.length;
 
     res.json({
       totalPageviews,
-      uniqueVisitors: uniqueSessions,
+      uniqueVisitors,
       topPages
     });
   } catch (err) {

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { validateBody } = require('../middleware/validate');
+const { updateConfigSchema } = require('../schemas/widget.schema');
 
 // Public: Fetched by the embed script to customize itself dynamically on client website
 router.get('/config', async (req, res) => {
@@ -37,11 +39,17 @@ router.get('/config', async (req, res) => {
 });
 
 // Protected: Update Widget Customization Settings (called from Admin Dashboard)
-router.put('/config', authMiddleware, async (req, res) => {
+router.put('/config', authMiddleware, validateBody(updateConfigSchema), async (req, res) => {
   try {
     const { siteKey, settings } = req.body;
-    if (!siteKey || !settings) {
-      return res.status(400).json({ error: 'Missing siteKey or settings' });
+
+    const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
+    if (!site) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to update settings for this site' });
     }
 
     const updatedSite = await prisma.site.update({

@@ -3,11 +3,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
 const { authMiddleware, JWT_SECRET, SERVER_INSTANCE_ID } = require('../middleware/auth');
+const { validateBody } = require('../middleware/validate');
+const { signupSchema, loginSchema } = require('../schemas/auth.schema');
 
 const router = express.Router();
 
-// RFC-compliant email format regex
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Pre-computed dummy hash to prevent timing-based user enumeration attacks
 const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
 
@@ -24,34 +24,14 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// 2. Signup / Account Creation
-router.post('/signup', async (req, res) => {
+// 2. Signup / Account Creation (Zod Validated)
+router.post('/signup', validateBody(signupSchema), async (req, res) => {
   try {
     const isFirstUser = (await prisma.user.count()) === 0;
-
-    const { name, email, password, confirmPassword } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
-    }
-
-    if (confirmPassword !== undefined && confirmPassword !== password) {
-      return res.status(400).json({ error: 'Passwords do not match. Please retype your password.' });
-    }
+    const { name, email, password } = req.body;
 
     const trimmedName = String(name).trim();
     const trimmedEmail = String(email).toLowerCase().trim();
-
-    if (!EMAIL_REGEX.test(trimmedEmail)) {
-      return res.status(400).json({ error: 'Please enter a valid email address' });
-    }
-
-    if (trimmedName.length < 2 || trimmedName.length > 100) {
-      return res.status(400).json({ error: 'Name must be between 2 and 100 characters' });
-    }
-
-    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
-      return res.status(400).json({ error: 'Password must be between 8 and 128 characters long' });
-    }
 
     const existingUser = await prisma.user.findUnique({
       where: { email: trimmedEmail }
@@ -110,14 +90,10 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// 3. Login
-router.post('/login', async (req, res) => {
+// 3. Login (Zod Validated)
+router.post('/login', validateBody(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
     const trimmedEmail = String(email).toLowerCase().trim();
     const user = await prisma.user.findUnique({
       where: { email: trimmedEmail }

@@ -1,10 +1,15 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
+
+// Logging & Tracing
+const logger = require('./utils/logger');
+const requestTrace = require('./middleware/requestTrace');
+const { publicCors, adminCors } = require('./middleware/cors');
 
 // Route Modules
 const authRoutes = require('./routes/auth');
@@ -21,18 +26,21 @@ const registerChatSocket = require('./sockets/chatSocket');
 const app = express();
 const server = http.createServer(app);
 
-// Enable CORS for all origins (Embed script on client websites & Dashboard)
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+// HTTP Security Headers (Safe for third-party embeds & self-hosted fonts)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false
 }));
+
+// Request Tracing (Assigns X-Request-ID and structured HTTP logging)
+app.use(requestTrace);
 
 app.use(express.json());
 
-// Serve static widget file if accessed via http://localhost:PORT/sitepulse.js
-app.use('/widget', express.static(path.join(__dirname, '../../widget')));
-app.get('/sitepulse.js', (req, res) => {
+// Public CORS for Widget Embed Script & Assets
+app.use('/widget', publicCors, express.static(path.join(__dirname, '../../widget')));
+app.get('/sitepulse.js', publicCors, (req, res) => {
   res.sendFile(path.join(__dirname, '../../widget/sitepulse.js'));
 });
 
@@ -61,22 +69,26 @@ app.use((req, res, next) => {
 });
 
 // -------------------------------------------------------------
-// REST API ROUTE MOUNTING
+// REST API ROUTE MOUNTING & ROUTE-SPECIFIC CORS
 // -------------------------------------------------------------
 
-// System Health Check
-app.get('/api/health', (req, res) => {
+// System Health Check (Public)
+app.get('/api/health', publicCors, (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-// Domain Routers
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/sites', sitesRoutes);
-app.use('/api/v1/widget', widgetRoutes);
+// Admin API Routes (Restricted CORS to Dashboard origins)
+app.use('/api/v1/auth', adminCors, authRoutes);
+app.use('/api/v1/sites', adminCors, sitesRoutes);
+
+// Public Widget Interaction Endpoints (Open CORS for visitor embeds)
+app.use('/api/v1/widget', publicCors, widgetRoutes);
+app.use('/api/v1/feedback', publicCors, feedbackRoutes);
+app.use('/api/v1/bugs', publicCors, bugsRoutes);
+app.use('/api/v1/events', publicCors, eventsRoutes);
+
+// Conversations API (Hybrid: Public /init for visitors, Admin CORS for operators)
 app.use('/api/v1/conversations', conversationsRoutes);
-app.use('/api/v1/feedback', feedbackRoutes);
-app.use('/api/v1/bugs', bugsRoutes);
-app.use('/api/v1/events', eventsRoutes);
 
 // -------------------------------------------------------------
 // UNIFIED PRODUCTION DASHBOARD SERVING (Single-Port Setup)
@@ -100,17 +112,29 @@ app.all('/api/*', (req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// Centralized Global Error Handler
+// Centralized Global Error Handler (Structured JSON Logger)
 app.use((err, req, res, next) => {
-  console.error('[Server Error]', err);
+  logger.error({
+    err: {
+      message: err.message,
+      stack: err.stack,
+      status: err.status || 500
+    },
+    reqId: req.id,
+    url: req.originalUrl,
+    method: req.method
+  }, 'Unhandled Server Error');
+
   if (res.headersSent) return next(err);
   res.status(err.status || 500).json({
-    error: err.message || 'Internal server error'
+    error: err.message || 'Internal server error',
+    requestId: req.id
   });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
+  logger.info({ port: PORT }, 'SitePulse server listening');
   console.log(`===============================================`);
   console.log(`🚀 SitePulse Production Server running on port ${PORT}`);
   console.log(`📊 Unified Dashboard at: http://localhost:${PORT}/`);

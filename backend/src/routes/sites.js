@@ -3,6 +3,13 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { validateBody } = require('../middleware/validate');
+const {
+  createSiteSchema,
+  updateSiteSchema,
+  deleteActionSchema,
+  deleteChatsSchema
+} = require('../schemas/sites.schema');
 
 // Utility: Normalize pathnames consistently across crawler and analytics
 function normalizePathname(urlOrPath, baseOrigin) {
@@ -53,13 +60,10 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Protected: Create Site
-router.post('/', authMiddleware, async (req, res) => {
+// Protected: Create Site (Zod Validated)
+router.post('/', authMiddleware, validateBody(createSiteSchema), async (req, res) => {
   try {
     const { name, domain } = req.body;
-    if (!name || !domain) {
-      return res.status(400).json({ error: 'Name and domain are required' });
-    }
     const defaultSettings = {
       primaryColor: '#000000',
       title: 'SitePulse Support',
@@ -86,15 +90,11 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Handler for updating website name or domain/URL
+// Handler for updating website name or domain/URL (Zod Validated)
 const handleUpdateSite = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, domain } = req.body;
-
-    if (!name && !domain) {
-      return res.status(400).json({ error: 'At least name or domain must be provided.' });
-    }
 
     const site = await prisma.site.findUnique({ where: { id } });
     if (!site) {
@@ -125,18 +125,14 @@ const handleUpdateSite = async (req, res) => {
   }
 };
 
-router.patch('/:id', authMiddleware, handleUpdateSite);
-router.put('/:id', authMiddleware, handleUpdateSite);
+router.patch('/:id', authMiddleware, validateBody(updateSiteSchema), handleUpdateSite);
+router.put('/:id', authMiddleware, validateBody(updateSiteSchema), handleUpdateSite);
 
-// Protected: Delete a Site (Requires Admin Password)
-router.delete('/:id', authMiddleware, async (req, res) => {
+// Protected: Delete a Site (Requires Admin Password, Zod Validated)
+router.delete('/:id', authMiddleware, validateBody(deleteActionSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { password } = req.body;
-
-    if (!password) {
-      return res.status(400).json({ error: 'Your admin account password is required to delete this website property.' });
-    }
 
     // Verify user password
     const adminUser = await prisma.user.findUnique({
@@ -168,15 +164,11 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Protected: Delete all conversations for a site (Requires Admin Password)
-router.delete('/:id/conversations', authMiddleware, async (req, res) => {
+// Protected: Delete all conversations for a site (Requires Admin Password, Zod Validated)
+router.delete('/:id/conversations', authMiddleware, validateBody(deleteChatsSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { password } = req.body;
-
-    if (!password) {
-      return res.status(400).json({ error: 'Your admin account password is required to delete all chats.' });
-    }
 
     // Verify user password
     const adminUser = await prisma.user.findUnique({
@@ -271,6 +263,9 @@ router.get('/:siteKey/pages', authMiddleware, async (req, res) => {
     const { siteKey } = req.params;
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to view pages for this site' });
+    }
 
     // 1. Get distinct pages from recent analytics events (capped for performance)
     const events = await prisma.analyticsEvent.findMany({
@@ -373,6 +368,9 @@ router.post('/:siteKey/scan', authMiddleware, async (req, res) => {
     const { siteKey } = req.params;
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to scan this site' });
+    }
 
     let rawDomain = (site.domain || '').trim();
     if (!rawDomain) {

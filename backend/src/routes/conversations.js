@@ -3,15 +3,25 @@ const router = express.Router();
 const prisma = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { conversationInitLimiter } = require('../middleware/rateLimiter');
+const { publicCors, adminCors } = require('../middleware/cors');
+const { validateBody } = require('../middleware/validate');
+const { initConversationSchema, updateStatusSchema } = require('../schemas/conversations.schema');
+
+// Preflight CORS handlers
+router.options('/init', publicCors);
+router.options('*', adminCors);
 
 // Protected: List conversations for a site (Admin Inbox)
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', adminCors, authMiddleware, async (req, res) => {
   try {
     const { siteKey, status } = req.query;
     if (!siteKey) return res.status(400).json({ error: 'siteKey is required' });
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to view conversations for this site' });
+    }
 
     const where = { siteId: site.id };
     if (status && status !== 'all') {
@@ -35,27 +45,15 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Public: Initialize or resume a conversation from the widget
-router.post('/init', conversationInitLimiter, async (req, res) => {
+// Public: Initialize or resume a conversation from the widget (Zod Validated, Public CORS)
+router.post('/init', publicCors, conversationInitLimiter, validateBody(initConversationSchema), async (req, res) => {
   try {
     const { siteKey, visitorId, externalId, visitorName, visitorEmail } = req.body;
-    if (!siteKey || !visitorId) {
-      return res.status(400).json({ error: 'siteKey and visitorId are required' });
-    }
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
 
-    // Strict Email Gate Validation
-    if (!visitorEmail || typeof visitorEmail !== 'string') {
-      return res.status(400).json({ error: 'Email address is required to start a conversation.' });
-    }
     const trimmedEmail = visitorEmail.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail)) {
-      return res.status(400).json({ error: 'Please enter a valid email address.' });
-    }
-
     let conversation = null;
 
     // Search by external ID if identified
@@ -125,17 +123,22 @@ router.post('/init', conversationInitLimiter, async (req, res) => {
 });
 
 // Protected: Get messages for a conversation
-router.get('/:id/messages', authMiddleware, async (req, res) => {
+router.get('/:id/messages', adminCors, authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const conversation = await prisma.conversation.findUnique({
       where: { id },
       include: {
+        site: true,
         messages: { orderBy: { createdAt: 'asc' } }
       }
     });
 
     if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
+    if (conversation.site && conversation.site.userId && conversation.site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to view messages for this conversation' });
+    }
+
     res.json(conversation.messages);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -143,13 +146,23 @@ router.get('/:id/messages', authMiddleware, async (req, res) => {
 });
 
 // Protected: Update Conversation Status (e.g. "open" or "resolved")
-router.patch('/:id/status', authMiddleware, async (req, res) => {
+router.patch('/:id/status', adminCors, authMiddleware, validateBody(updateStatusSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    const existing = await prisma.conversation.findUnique({
+      where: { id },
+      include: { site: true }
+    });
+    if (!existing) return res.status(404).json({ error: 'Conversation not found' });
+    if (existing.site && existing.site.userId && existing.site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to update this conversation' });
+    }
+
     const conv = await prisma.conversation.update({
       where: { id },
-      data: { status: status || 'open' }
+      data: { status }
     });
     res.json(conv);
   } catch (err) {

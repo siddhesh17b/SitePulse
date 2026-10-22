@@ -2,29 +2,23 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { validateBody } = require('../middleware/validate');
+const { createFeedbackSchema } = require('../schemas/feedback.schema');
 
 // Public: Visitor submits feedback rating + comment from widget
-router.post('/', async (req, res) => {
+router.post('/', validateBody(createFeedbackSchema), async (req, res) => {
   try {
     const { siteKey, rating, comment, userEmail } = req.body;
-    if (!siteKey || !rating || !comment) {
-      return res.status(400).json({ error: 'siteKey, rating, and comment are required' });
-    }
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
 
-    const parsedRating = parseInt(rating, 10);
-    if (isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
-      return res.status(400).json({ error: 'Rating must be an integer between 1 and 5' });
-    }
-
     const feedback = await prisma.feedback.create({
       data: {
         siteId: site.id,
-        rating: parsedRating,
-        comment: String(comment).trim(),
-        userEmail: userEmail ? String(userEmail).trim() : null
+        rating,
+        comment,
+        userEmail: userEmail || null
       }
     });
 
@@ -47,6 +41,9 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to view feedback for this site' });
+    }
 
     const feedbacks = await prisma.feedback.findMany({
       where: { siteId: site.id },

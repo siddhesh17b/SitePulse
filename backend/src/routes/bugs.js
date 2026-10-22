@@ -2,14 +2,13 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { validateBody } = require('../middleware/validate');
+const { createBugSchema } = require('../schemas/bugs.schema');
 
 // Public: Visitor submits bug report with optional diagnostics
-router.post('/', async (req, res) => {
+router.post('/', validateBody(createBugSchema), async (req, res) => {
   try {
     const { siteKey, title, description, userEmail, url, browser, device } = req.body;
-    if (!siteKey || !title || !description) {
-      return res.status(400).json({ error: 'siteKey, title, and description are required' });
-    }
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
@@ -46,6 +45,9 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const site = await prisma.site.findUnique({ where: { apiKey: siteKey } });
     if (!site) return res.status(404).json({ error: 'Site not found' });
+    if (site.userId && site.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized to view bug reports for this site' });
+    }
 
     const bugs = await prisma.bugReport.findMany({
       where: { siteId: site.id },
