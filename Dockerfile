@@ -42,5 +42,5 @@ COPY --from=dashboard-builder /app/dashboard/dist /app/dashboard/dist
 # Expose single unified port
 EXPOSE 5000
 
-# Entrypoint script to push schema and start unified server
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node src/server.js"]
+# Entrypoint script with automatic database readiness retry loop and startup
+CMD ["sh", "-c", "ATTEMPTS=0; until npx prisma db push --skip-generate || [ $ATTEMPTS -ge 5 ]; do ATTEMPTS=$((ATTEMPTS+1)); echo \"Waiting for database connection ($ATTEMPTS/5)...\"; sleep 3; done; node src/server.js"]

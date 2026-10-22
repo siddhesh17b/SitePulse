@@ -10,6 +10,7 @@
     "build:dashboard": "npm --prefix dashboard run build",
     "test": "npm --prefix backend test",
     "build": "npm --prefix dashboard install && npm --prefix dashboard run build && npm --prefix backend install && npm --prefix backend run prisma:generate && npm --prefix backend run prisma:push",
+    "prestart": "node -e \"const fs = require('fs'), cp = require('child_process'); if (!fs.existsSync('dashboard/dist/index.html')) { console.log('Building dashboard before starting server...'); cp.execSync('npm --prefix dashboard run build', { stdio: 'inherit' }); }\"",
     "start": "node backend/src/server.js",
     "db:reset": "npm --prefix backend run db:reset"
   }
