@@ -1,53 +1,57 @@
 # SitePulse
 
-SitePulse helps website teams handle three common jobs in one place:
+SitePulse helps website teams handle three common jobs in one unified platform:
 
-1. Talk to visitors through a support chat widget.
-2. Collect structured feedback and bug reports from visitors.
-3. Track basic page traffic without cookies.
+1. **Talk to visitors** through an embeddable support chat widget.
+2. **Collect structured feedback and bug reports** directly from users.
+3. **Track privacy-preserving, cookieless traffic** across website pages.
 
-It includes:
+### System Architecture
 
-- a backend API + Socket.IO server (`/backend`)
-- an admin dashboard (`/dashboard`)
-- an embeddable script you place on your site (`/widget/sitepulse.js`)
+- `/backend` – Express API, Socket.IO gateway, Prisma ORM, Pino structured logging, Helmet security & Zod validation
+- `/dashboard` – Modular React + Vite admin app with custom hooks (`useAuth`, `useSites`, `useChat`)
+- `/widget` – Embeddable, Shadow DOM-isolated client script (`sitepulse.js`)
+- `/docs` – Engineering guides including declarative database migrations
+- `/docker-compose.yml` + `/Dockerfile` – Containerized single-port production deployment
 
-## What problem this solves
+---
 
-If you run a website, support requests, user feedback, bug reports, and page traffic data often end up in separate tools. SitePulse combines these into one workflow:
+## What Problem This Solves
 
-- visitors use one widget on your site
-- your team uses one dashboard
-- all records are stored in one PostgreSQL database
+If you run a website, support requests, user feedback, bug reports, and page traffic data often end up fragmented across separate third-party tools. SitePulse unifies these into one cohesive workflow:
 
-## Main features
+- **Visitors** interact with a single, lightweight widget on your site.
+- **Your Team** manages incoming chats, bugs, feedback, page targeting rules, and analytics in one dashboard.
+- **Data Integrity** is preserved in a single, high-performance PostgreSQL database.
 
-- Real-time visitor chat with operator replies
-- Conversation inbox with open/resolved status
-- Feedback collection (rating + comment)
-- Bug reports with optional browser/device/url context
-- Widget customization (title, greeting, colors, feature toggles)
-- Page rules to show/hide widget by path or wildcard pattern
-- Page discovery via traffic + optional site scan
-- Cookie-free analytics summary (pageviews, unique daily visitors, top pages)
-- Multi-site support per account
+---
 
-## Repository structure
+## Main Features
 
-- `/backend` – Express API, Socket.IO gateway, Prisma schema
-- `/dashboard` – React + Vite admin app
-- `/widget` – embeddable client script
-- `/docker-compose.yml` + `/Dockerfile` – containerized deployment
+- **Real-Time Live Chat**: Bidirectional Socket.IO messaging between visitors and support agents with typing indicators.
+- **Conversations Inbox**: Filter by unread, open, or resolved with real-time badges.
+- **Structured Feedback**: Rating stars (1–5) and user comments.
+- **Bug Reporting with Diagnostics**: Automatically captures visitor browser, OS, device, and URL context.
+- **Dynamic Widget Customizer**: Real-time styling (primary color, greeting, titles, feature toggles).
+- **Page Rules & Display Targeting**: Enable or disable the widget on specific paths or wildcard patterns (`/products/*`, `/checkout`).
+- **Web Crawler & Auto-Discovery**: Discovers internal pages via traffic logs, robots.txt, and XML sitemaps.
+- **Cookieless Analytics**: Daily rotating SHA-256 session hashes tracking pageviews, unique visitors, and top pages via database-level `groupBy` aggregation.
+- **Multi-Tenant Architecture**: Multi-site management per account with password-protected danger zone actions (site deletion & chat purge).
+- **Security & Reliability**: Route-specific CORS policies, Helmet HTTP security headers, Pino structured JSON logging, and `X-Request-ID` request tracing.
+
+---
 
 ## Prerequisites
 
-- Node.js 20+
-- npm 10+
-- PostgreSQL 14+ (or use Docker Compose below)
+- **Node.js**: 20+
+- **npm**: 10+
+- **PostgreSQL**: 14+ (or use Docker Compose below)
 
-## Local setup (without Docker)
+---
 
-1. Install dependencies:
+## Local Setup (Without Docker)
+
+### 1. Install Dependencies
 
 ```bash
 npm install
@@ -55,137 +59,188 @@ npm --prefix backend install
 npm --prefix dashboard install
 ```
 
-2. Configure backend environment:
+### 2. Configure Backend Environment
+
+Copy the example environment file:
 
 ```bash
+# macOS / Linux:
 cp backend/.env.example backend/.env
+
+# Windows (PowerShell):
+Copy-Item backend/.env.example backend/.env
 ```
 
-Then update at least:
+Update your `backend/.env` with your local credentials:
 
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `DAILY_SALT`
+```env
+PORT=5000
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sitepulse?schema=public"
+JWT_SECRET="your-super-secret-jwt-key"
+DAILY_SALT="your-privacy-salt-for-analytics"
+```
 
-3. Prepare database schema:
+### 3. Initialize Database Schema
 
 ```bash
 npm --prefix backend run prisma:generate
 npm --prefix backend run prisma:push
 ```
 
-4. (Optional) seed demo site:
+*(For production-grade declarative migrations with versioned SQL files, see [Database Migrations & Schema Management](#database-migrations--schema-management) below).*
+
+### 4. Seed Demo Site (Optional)
 
 ```bash
 node backend/src/seed.js
 ```
 
-5. Start services:
+### 5. Start Development Servers
 
-Backend:
+Run backend (Express + Socket.IO on port `5000`):
 
 ```bash
 npm run dev:backend
 ```
 
-Dashboard (separate terminal):
+Run dashboard (Vite dev server on port `5173` in a separate terminal):
 
 ```bash
 npm run dev:dashboard
 ```
 
-In dev mode the dashboard runs on Vite and calls backend at `http://localhost:5000`.
+---
 
-## Production-style single-port run
+## Database Migrations & Schema Management
 
-Build dashboard and prepare backend:
+SitePulse supports both rapid prototyping and production-grade declarative schema migrations using Prisma. For a comprehensive architectural guide, refer to [`docs/DATABASE_MIGRATIONS.md`](docs/DATABASE_MIGRATIONS.md).
+
+### Development Migrations (`prisma migrate dev`)
+Whenever you update `backend/prisma/schema.prisma`, generate an immutable, version-controlled SQL migration file:
+
+```bash
+# From repository root:
+npm --prefix backend run prisma:migrate -- --name descriptive_migration_name
+
+# Or inside /backend:
+cd backend
+npx prisma migrate dev --name descriptive_migration_name
+```
+*This updates your local database, creates a timestamped SQL migration in `backend/prisma/migrations/`, and regenerates the Prisma Client.*
+
+### Applying Migrations in Production / CI (`prisma migrate deploy`)
+In production containers or staging environments, apply pending migrations deterministically without prompting:
+
+```bash
+cd backend
+npx prisma migrate deploy
+```
+
+### Rapid Prototyping (`prisma db push`)
+For quick experimental schema prototyping without creating migration files:
+
+```bash
+npm --prefix backend run prisma:push
+```
+
+### Wiping / Resetting Database
+To wipe all data records in foreign-key dependency order (keeping the schema):
+
+```bash
+npm run db:reset
+```
+
+To drop all tables and recreate a completely fresh database schema:
+
+```bash
+npm --prefix backend run prisma:push -- --force-reset
+```
+
+---
+
+## Production-Style Single-Port Run
+
+Compile the dashboard SPA and prepare backend Prisma client:
 
 ```bash
 npm run build
 ```
 
-Start unified server:
+Start the unified server:
 
 ```bash
 npm start
 ```
 
-This serves:
+This single process hosts:
+- Dashboard SPA at `http://localhost:5000/`
+- REST API at `http://localhost:5000/api/v1/`
+- Socket.IO gateway on port `5000`
+- Widget script at `http://localhost:5000/sitepulse.js`
 
-- dashboard UI
-- REST API
-- Socket.IO
-- widget script at `/sitepulse.js`
+---
 
-from the same port (default `5000`).
+## Docker Compose Quick Start
 
-## Docker Compose quick start
-
-From repository root:
+To spin up both PostgreSQL and the unified SitePulse container:
 
 ```bash
 docker compose up --build
 ```
 
-This starts:
+- PostgreSQL runs on port `5432`
+- SitePulse App runs on port `5000` (`http://localhost:5000`)
 
-- PostgreSQL (`sitepulse_db`)
-- SitePulse app (`sitepulse_app`)
+---
 
-Default app URL: `http://localhost:5000`
+## Automated Verification & Testing
 
-## Embed the widget on your website
+SitePulse includes a full-system automated verification suite covering infrastructure, auth, multi-tenant isolation, public widget endpoints, analytics aggregation, Socket.IO messaging, and danger zone deletions:
 
-Add this before `</body>`:
+```bash
+# Run backend test suite (34 automated tests):
+npm test
 
-```html
-<script src="http://localhost:5000/sitepulse.js" data-site-key="YOUR_SITE_KEY"></script>
+# Verify dashboard compilation:
+npm run build:dashboard
 ```
 
-You can copy the exact snippet for each site from the dashboard.
+---
 
-## How the basic flow works
+## Embed the Widget on Your Website
 
-1. Admin signs up/logs in through the dashboard.
-2. Admin creates a site entry (name + domain).
-3. Admin embeds widget script on that site.
-4. Visitors can:
-   - start a chat
-   - submit feedback
-   - submit bug reports
-5. Dashboard shows:
-   - conversations and real-time messages
-   - feedback and bug report lists
-   - analytics summary
-   - widget and page-rule settings
+Add this single `<script>` snippet just before the closing `</body>` tag of your website:
 
-## Useful scripts
+```html
+<script src="http://localhost:5000/sitepulse.js" data-site-key="YOUR_SITE_KEY" defer></script>
+```
 
-From repository root:
+You can copy the pre-configured snippet for any registered site directly from the **Website Property Settings** tab in your dashboard.
 
-- `npm run dev:backend` – backend in watch mode
-- `npm run dev:dashboard` – dashboard in dev mode
-- `npm run build` – build dashboard + prepare backend Prisma
-- `npm start` – run unified production server
-- `npm run db:reset` – clear all SitePulse data
+---
 
-From `/backend`:
+## Useful Scripts Reference
 
-- `npm run prisma:generate`
-- `npm run prisma:push`
-- `npm run prisma:migrate`
+| Command | Description |
+| :--- | :--- |
+| `npm test` | Runs the 34-test end-to-end backend verification suite |
+| `npm run dev:backend` | Starts backend server in watch mode (`nodemon`) |
+| `npm run dev:dashboard` | Starts Vite dashboard dev server |
+| `npm run build:dashboard` | Builds dashboard SPA with Vite |
+| `npm run build` | Builds dashboard and generates Prisma Client |
+| `npm start` | Runs single-port production server |
+| `npm run db:reset` | Wipes all database records cleanly |
+| `npm --prefix backend run prisma:migrate` | Runs declarative Prisma database migration |
+| `npm --prefix backend run prisma:push` | Synchronizes Prisma schema directly to DB |
 
-## Core API groups
+---
 
-- Auth: `/api/v1/auth/*`
-- Sites + widget settings: `/api/v1/sites/*`, `/api/v1/widget/config`
-- Conversations: `/api/v1/conversations/*`
-- Feedback: `/api/v1/feedback`
-- Bug reports: `/api/v1/bugs`
-- Analytics events + stats: `/api/v1/events`, `/api/v1/events/stats`
+## Core API Groups
 
-## Notes
-
-- Tokens are session-scoped in the dashboard (stored in `sessionStorage`).
-- Visitor analytics uses hashed daily identifiers instead of raw persistent visitor IDs.
-- First account created is admin; later signups become agent role.
+- **Authentication & Profiles**: `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/me`, `/api/v1/auth/status`
+- **Sites & Settings**: `/api/v1/sites`, `/api/v1/sites/:id`, `/api/v1/widget/config`
+- **Page Discovery & Rules**: `/api/v1/sites/:siteKey/pages`, `/api/v1/sites/:siteKey/scan`
+- **Live Conversations**: `/api/v1/conversations`, `/api/v1/conversations/init`, `/api/v1/conversations/:id/messages`
+- **Feedback Collection**: `/api/v1/feedback`
+- **Bug Reporting**: `/api/v1/bugs`
+- **Privacy Analytics**: `/api/v1/events`, `/api/v1/events/stats`
