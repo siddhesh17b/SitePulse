@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Layers, Plus } from 'lucide-react';
+import { Menu, Layers, Plus, PanelLeft, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 
 import AuthView from './components/AuthView';
 import Sidebar from './components/Sidebar';
 import ChatView from './components/ChatView';
 import CustomizerView from './components/CustomizerView';
 import FeedbackView from './components/FeedbackView';
-import AnalyticsView from './components/AnalyticsView';
 import PageRulesView from './components/PageRulesView';
 import SettingsView from './components/SettingsView';
 import { 
@@ -19,7 +18,7 @@ import {
 import { useAuth } from './hooks/useAuth';
 import { useSites } from './hooks/useSites';
 import { useChat } from './hooks/useChat';
-import { BACKEND_URL, widgetApi, sitesApi, feedbackApi, bugsApi, eventsApi } from './services/api';
+import { BACKEND_URL, widgetApi, sitesApi, feedbackApi, bugsApi } from './services/api';
 
 export default function App() {
   // 1. Authentication Hook
@@ -38,8 +37,38 @@ export default function App() {
   } = useAuth();
 
   // Navigation State
-  const [activeNav, setActiveNav] = useState('chat'); // 'chat' | 'customizer' | 'page-rules' | 'feedback' | 'analytics' | 'settings'
+  const [activeNav, setActiveNav] = useState('chat'); // 'chat' | 'customizer' | 'page-rules' | 'feedback' | 'settings'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sitepulse_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileMenuOpen(prev => !prev);
+    } else {
+      setSidebarCollapsed(prev => {
+        const next = !prev;
+        try { localStorage.setItem('sitepulse_sidebar_collapsed', String(next)); } catch {}
+        return next;
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 2. Sites Management Hook
   const {
@@ -51,6 +80,9 @@ export default function App() {
     setShowNewSiteModal,
     newSiteForm,
     setNewSiteForm,
+    newSiteError,
+    setNewSiteError,
+    creatingSite,
     handleCreateSite,
     siteDetailsForm,
     setSiteDetailsForm,
@@ -125,12 +157,36 @@ export default function App() {
 
   const handleSaveSettings = async () => {
     if (!activeSite || !token) return;
+    const HEX_REGEX = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+    const color = (settings.primaryColor || '').trim();
+    if (!HEX_REGEX.test(color)) {
+      alert('Please provide a valid 3 or 6 digit HEX color code (e.g. #287170 or #000).');
+      return;
+    }
+    const title = (settings.title || '').trim();
+    if (!title) {
+      alert('Widget title cannot be empty.');
+      return;
+    }
+    const greeting = (settings.greeting || '').trim();
+    if (!greeting) {
+      alert('Greeting message cannot be empty.');
+      return;
+    }
+    const sanitizedSettings = {
+      ...settings,
+      primaryColor: color,
+      title,
+      subtitle: (settings.subtitle || '').trim(),
+      greeting
+    };
+
     setSavingSettings(true);
     setSaveSuccess(false);
     try {
-      await widgetApi.updateConfig({ siteKey: activeSite.apiKey, settings });
-      setActiveSite(prev => ({ ...prev, widgetSettings: settings }));
-      setSites(prev => prev.map(s => s.id === activeSite.id ? { ...s, widgetSettings: settings } : s));
+      await widgetApi.updateConfig({ siteKey: activeSite.apiKey, settings: sanitizedSettings });
+      setActiveSite(prev => ({ ...prev, widgetSettings: sanitizedSettings }));
+      setSites(prev => prev.map(s => s.id === activeSite.id ? { ...s, widgetSettings: sanitizedSettings } : s));
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (e) {
@@ -140,14 +196,9 @@ export default function App() {
     }
   };
 
-  // 5. Feedback, Bugs & Analytics State
+  // 5. Feedback & Bugs State
   const [feedbacks, setFeedbacks] = useState([]);
   const [bugs, setBugs] = useState([]);
-  const [analytics, setAnalytics] = useState({
-    totalPageviews: 0,
-    uniqueVisitors: 0,
-    topPages: []
-  });
 
   // 6. Page Rules & Auto-Discovery State
   const [discoveredPages, setDiscoveredPages] = useState([]);
@@ -161,6 +212,7 @@ export default function App() {
   const [pageSearchQuery, setPageSearchQuery] = useState('');
   const [customPatternInput, setCustomPatternInput] = useState('');
   const [customPatternAction, setCustomPatternAction] = useState('block');
+  const [customPatternError, setCustomPatternError] = useState('');
   const [savingPageRules, setSavingPageRules] = useState(false);
   const [pageRulesSaved, setPageRulesSaved] = useState(false);
 
@@ -238,8 +290,21 @@ export default function App() {
 
   const handleAddCustomPattern = (e) => {
     e.preventDefault();
-    if (!customPatternInput.trim()) return;
-    let clean = customPatternInput.trim().toLowerCase();
+    setCustomPatternError('');
+    const input = (customPatternInput || '').trim();
+    if (!input) {
+      setCustomPatternError('Pattern cannot be empty.');
+      return;
+    }
+    if (input.includes(' ')) {
+      setCustomPatternError('Pattern path cannot contain whitespace.');
+      return;
+    }
+    if (input.includes('?') || input.includes('#')) {
+      setCustomPatternError('Query strings (?) and hashes (#) are not allowed in path patterns.');
+      return;
+    }
+    let clean = input.toLowerCase();
     if (!clean.startsWith('/') && !clean.startsWith('*')) {
       clean = '/' + clean;
     }
@@ -288,14 +353,12 @@ export default function App() {
     }
   };
 
-  // Fetch feedback, bugs & analytics when tabs activate
+  // Fetch feedback & bugs when tabs activate
   useEffect(() => {
     if (!activeSite || !token) return;
     if (activeNav === 'feedback') {
       feedbackApi.getAll(activeSite.apiKey).then(setFeedbacks);
       bugsApi.getAll(activeSite.apiKey).then(setBugs);
-    } else if (activeNav === 'analytics') {
-      eventsApi.getStats(activeSite.apiKey).then(setAnalytics);
     } else if (activeNav === 'page-rules') {
       loadDiscoveredPages();
     }
@@ -331,6 +394,7 @@ export default function App() {
 
       {/* Sidebar Navigation */}
       <Sidebar
+        sidebarCollapsed={sidebarCollapsed}
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         activeSite={activeSite}
@@ -350,21 +414,29 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0 bg-slate-50">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 gap-3">
+        <header className="h-20 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg shrink-0 transition cursor-pointer"
-              aria-label="Open navigation menu"
+              onClick={toggleSidebar}
+              className="p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl shrink-0 transition cursor-pointer flex items-center justify-center"
+              title={
+                typeof window !== 'undefined' && window.innerWidth < 1024
+                  ? "Toggle navigation menu"
+                  : (sidebarCollapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)")
+              }
+              aria-label="Toggle sidebar navigation"
             >
-              <Menu className="w-5 h-5" />
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="w-5.5 h-5.5 text-[#287170]" />
+              ) : (
+                <PanelLeftClose className="w-5.5 h-5.5 text-slate-600" />
+              )}
             </button>
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
               {activeNav === 'chat' && 'Live Support Inbox'}
               {activeNav === 'customizer' && 'Widget Customization & Styling'}
               {activeNav === 'page-rules' && 'Page Rules & Display'}
               {activeNav === 'feedback' && 'Customer Feedback & Bug Reports'}
-              {activeNav === 'analytics' && 'Website Analytics'}
               {activeNav === 'settings' && 'Website Property Settings'}
             </h2>
           </div>
@@ -391,7 +463,7 @@ export default function App() {
               </div>
               <h3 className="text-base font-bold text-slate-900">No Website Selected</h3>
               <p className="text-sm text-slate-600 max-w-sm mt-1 mb-5">
-                Select a website from the sidebar or add a new website to manage support and analytics.
+                Select a website from the sidebar or add a new website to manage support and feedback.
               </p>
               <button
                 onClick={() => setShowNewSiteModal(true)}
@@ -458,6 +530,8 @@ export default function App() {
                   setCustomPatternInput={setCustomPatternInput}
                   customPatternAction={customPatternAction}
                   setCustomPatternAction={setCustomPatternAction}
+                  customPatternError={customPatternError}
+                  setCustomPatternError={setCustomPatternError}
                   handleAddCustomPattern={handleAddCustomPattern}
                   pageRulesSaved={pageRulesSaved}
                   handleSavePageRules={handleSavePageRules}
@@ -469,12 +543,6 @@ export default function App() {
                 <FeedbackView
                   feedbacks={feedbacks}
                   bugs={bugs}
-                />
-              )}
-
-              {activeNav === 'analytics' && (
-                <AnalyticsView
-                  analytics={analytics}
                 />
               )}
 
@@ -516,6 +584,9 @@ export default function App() {
         newSiteForm={newSiteForm}
         setNewSiteForm={setNewSiteForm}
         handleCreateSite={handleCreateSite}
+        newSiteError={newSiteError}
+        setNewSiteError={setNewSiteError}
+        creatingSite={creatingSite}
       />
 
       {/* Danger Zone: Delete Website Property Modal */}

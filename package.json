@@ -1,7 +1,7 @@
 {
   "name": "sitepulse",
   "version": "1.0.0",
-  "description": "SitePulse - Integrated Website Support, Feedback and Analytics Platform",
+  "description": "SitePulse - Integrated Website Support, Feedback and Bug Reporting Platform",
   "scripts": {
     "dev:backend": "npm --prefix backend run dev",
     "start:backend": "npm --prefix backend start",

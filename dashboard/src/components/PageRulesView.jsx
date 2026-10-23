@@ -28,6 +28,8 @@ export default function PageRulesView({
   setCustomPatternInput,
   customPatternAction,
   setCustomPatternAction,
+  customPatternError,
+  setCustomPatternError,
   handleAddCustomPattern,
   pageRulesSaved,
   handleSavePageRules,
@@ -332,13 +334,23 @@ export default function PageRulesView({
           </div>
         </div>
 
+        {customPatternError && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
+            {customPatternError}
+          </div>
+        )}
+
         <form onSubmit={handleAddCustomPattern} className="flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
             <input
               type="text"
+              maxLength={120}
               placeholder="e.g. /checkout/* or /login or *.html"
               value={customPatternInput}
-              onChange={(e) => setCustomPatternInput(e.target.value)}
+              onChange={(e) => {
+                setCustomPatternInput(e.target.value);
+                if (customPatternError && setCustomPatternError) setCustomPatternError('');
+              }}
               className="w-full font-mono text-sm px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] font-medium"
             />
           </div>
@@ -352,7 +364,8 @@ export default function PageRulesView({
           </select>
           <button
             type="submit"
-            className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+            disabled={!customPatternInput.trim()}
+            className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
             <span>Add Pattern</span>
@@ -366,7 +379,10 @@ export default function PageRulesView({
             <button
               key={chip}
               type="button"
-              onClick={() => setCustomPatternInput(chip)}
+              onClick={() => {
+                setCustomPatternInput(chip);
+                if (customPatternError && setCustomPatternError) setCustomPatternError('');
+              }}
               className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs cursor-pointer transition border border-slate-200/60"
             >
               {chip}

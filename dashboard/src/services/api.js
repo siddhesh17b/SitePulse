@@ -234,10 +234,3 @@ export const bugsApi = {
     return Array.isArray(data) ? data : [];
   }
 };
-
-export const eventsApi = {
-  async getStats(siteKey) {
-    const res = await authFetch(`/api/v1/events/stats?siteKey=${siteKey}`);
-    return res.ok ? await res.json() : { totalPageviews: 0, uniqueVisitors: 0, topPages: [] };
-  }
-};

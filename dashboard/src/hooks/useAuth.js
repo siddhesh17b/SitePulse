@@ -90,13 +90,39 @@ export function useAuth() {
     e.preventDefault();
     setAuthError('');
 
+    const trimmedEmail = (authForm.email || '').trim().toLowerCase();
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!trimmedEmail) {
+      setAuthError('Email address is required.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setAuthError('Please enter a valid email address (e.g. name@domain.com).');
+      return;
+    }
+
+    if (!authForm.password) {
+      setAuthError('Password is required.');
+      return;
+    }
+
     if (authMode === 'signup') {
-      if (authForm.password !== authForm.confirmPassword) {
-        setAuthError('Passwords do not match. Please retype your password.');
+      const trimmedName = (authForm.name || '').trim();
+      if (!trimmedName) {
+        setAuthError('Please enter your full name.');
         return;
       }
-      if (authForm.password.length < 8) {
-        setAuthError('Password must be at least 8 characters long.');
+      if (trimmedName.length < 2 || trimmedName.length > 100) {
+        setAuthError('Full name must be between 2 and 100 characters.');
+        return;
+      }
+      if (authForm.password.length < 8 || authForm.password.length > 128) {
+        setAuthError('Password must be between 8 and 128 characters long.');
+        return;
+      }
+      if (authForm.password !== authForm.confirmPassword) {
+        setAuthError('Passwords do not match. Please retype your password.');
         return;
       }
     }
@@ -105,14 +131,14 @@ export function useAuth() {
       let data;
       if (authMode === 'signup') {
         data = await authApi.signup({
-          name: authForm.name,
-          email: authForm.email,
+          name: authForm.name.trim(),
+          email: trimmedEmail,
           password: authForm.password,
           confirmPassword: authForm.confirmPassword
         });
       } else {
         data = await authApi.login({
-          email: authForm.email,
+          email: trimmedEmail,
           password: authForm.password
         });
       }

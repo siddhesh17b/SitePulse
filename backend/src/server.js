@@ -26,7 +26,6 @@ const widgetRoutes = require('./routes/widget');
 const conversationsRoutes = require('./routes/conversations');
 const feedbackRoutes = require('./routes/feedback');
 const bugsRoutes = require('./routes/bugs');
-const eventsRoutes = require('./routes/events');
 
 // Socket Gateway
 const registerChatSocket = require('./sockets/chatSocket');
@@ -93,7 +92,6 @@ app.use('/api/v1/sites', adminCors, sitesRoutes);
 app.use('/api/v1/widget', publicCors, widgetRoutes);
 app.use('/api/v1/feedback', publicCors, feedbackRoutes);
 app.use('/api/v1/bugs', publicCors, bugsRoutes);
-app.use('/api/v1/events', publicCors, eventsRoutes);
 
 // Conversations API (Hybrid: Public /init for visitors, Admin CORS for operators)
 app.use('/api/v1/conversations', conversationsRoutes);

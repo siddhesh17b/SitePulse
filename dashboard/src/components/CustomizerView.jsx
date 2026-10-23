@@ -9,7 +9,14 @@ export default function CustomizerView({
   savingSettings,
   saveSuccess
 }) {
-  const previewContrast = getContrastColors(settings.primaryColor);
+  const HEX_REGEX = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+  const isValidHex = HEX_REGEX.test((settings.primaryColor || '').trim());
+  const isTitleValid = Boolean((settings.title || '').trim());
+  const isGreetingValid = Boolean((settings.greeting || '').trim());
+  const isFormValid = isValidHex && isTitleValid && isGreetingValid;
+
+  const previewColor = isValidHex ? settings.primaryColor : '#287170';
+  const previewContrast = getContrastColors(previewColor);
 
   return (
     <div className="flex flex-col lg:flex-row h-full overflow-y-auto lg:overflow-hidden min-w-0">
@@ -19,19 +26,28 @@ export default function CustomizerView({
           <div className="mt-3 flex items-center gap-3">
             <input
               type="color"
-              value={settings.primaryColor}
+              value={isValidHex ? settings.primaryColor : '#287170'}
               onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
               className="w-11 h-11 p-0 rounded-xl cursor-pointer border border-slate-200"
               title="Select primary brand accent color"
             />
             <input
               type="text"
+              maxLength={7}
               value={settings.primaryColor}
               onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-              className="font-mono text-sm px-3.5 py-2.5 border border-slate-200 rounded-xl w-32 text-slate-800 font-medium focus:outline-none focus:border-[#287170]"
+              placeholder="#287170"
+              className={`font-mono text-sm px-3.5 py-2.5 border rounded-xl w-32 font-medium focus:outline-none ${
+                !isValidHex 
+                  ? 'border-rose-400 text-rose-700 focus:border-rose-500' 
+                  : 'border-slate-200 text-slate-800 focus:border-[#287170]'
+              }`}
               title="Hex color code"
             />
           </div>
+          {!isValidHex && (
+            <p className="text-xs text-rose-600 mt-1.5 font-medium">Please enter a valid HEX color code (e.g. #287170)</p>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -40,16 +56,26 @@ export default function CustomizerView({
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Widget Title</label>
             <input
               type="text"
+              required
+              maxLength={80}
+              placeholder="e.g. SitePulse Support"
               value={settings.title}
               onChange={(e) => setSettings({ ...settings, title: e.target.value })}
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
+              className={`w-full px-3.5 py-2.5 border rounded-xl text-sm font-medium focus:outline-none ${
+                !isTitleValid ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-[#287170]'
+              }`}
               title="Main header title displayed inside the widget"
             />
+            {!isTitleValid && (
+              <p className="text-xs text-rose-600 mt-1 font-medium">Widget title cannot be empty.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Subtitle</label>
             <input
               type="text"
+              maxLength={120}
+              placeholder="e.g. We are here to help!"
               value={settings.subtitle}
               onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
@@ -59,12 +85,19 @@ export default function CustomizerView({
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Greeting Message</label>
             <textarea
+              maxLength={300}
+              placeholder="e.g. Hi there! How can we help you today?"
               value={settings.greeting}
               onChange={(e) => setSettings({ ...settings, greeting: e.target.value })}
               rows={3}
-              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170]"
+              className={`w-full px-3.5 py-2.5 border rounded-xl text-sm font-medium focus:outline-none ${
+                !isGreetingValid ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-[#287170]'
+              }`}
               title="Initial welcome message displayed to visitors opening chat"
             />
+            {!isGreetingValid && (
+              <p className="text-xs text-rose-600 mt-1 font-medium">Greeting message cannot be empty.</p>
+            )}
           </div>
         </div>
 
@@ -101,7 +134,7 @@ export default function CustomizerView({
 
         <button
           onClick={handleSaveSettings}
-          disabled={savingSettings}
+          disabled={savingSettings || !isFormValid}
           className="w-full bg-[#287170] hover:bg-[#205d5c] text-white font-semibold py-2.5 rounded-xl text-sm shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           title="Save widget branding, titles, and feature configuration"
         >
@@ -135,17 +168,17 @@ export default function CustomizerView({
               ✕
             </div>
           </div>
-          <div className="flex border-b border-slate-100 bg-slate-50 text-sm font-semibold">
+          <div className="flex border-b border-slate-100 bg-slate-50 text-[15.5px] font-semibold">
             {settings.enableChat && (
               <div
-                className="flex-1 py-2.5 text-center border-b-2 font-bold bg-white"
+                className="flex-1 py-3 text-center border-b-3 font-bold bg-white"
                 style={{ color: previewContrast.activeTab, borderBottomColor: previewContrast.activeTab }}
               >
                 💬 Chat
               </div>
             )}
-            {settings.enableFeedback && <div className="flex-1 py-2.5 text-center text-slate-500 font-semibold">⭐ Feedback</div>}
-            {settings.enableBugReport && <div className="flex-1 py-2.5 text-center text-slate-500 font-semibold">🐞 Bug Report</div>}
+            {settings.enableFeedback && <div className="flex-1 py-3 text-center text-slate-500 font-semibold">⭐ Feedback</div>}
+            {settings.enableBugReport && <div className="flex-1 py-3 text-center text-slate-500 font-semibold">🐞 Bug Report</div>}
           </div>
           <div className="flex-1 bg-slate-50 p-4 space-y-3 flex flex-col justify-between">
             <div className="space-y-3">

@@ -53,9 +53,10 @@ export function ChangeDomainModal({
               type="text"
               required
               autoFocus
+              maxLength={150}
               placeholder="e.g. store.com or localhost:3000"
               value={changeDomainModal.domain}
-              onChange={(e) => setChangeDomainModal(prev => ({ ...prev, domain: e.target.value }))}
+              onChange={(e) => setChangeDomainModal(prev => ({ ...prev, domain: e.target.value, error: '' }))}
               className="w-full text-sm font-mono font-medium px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
             />
           </div>
@@ -70,7 +71,7 @@ export function ChangeDomainModal({
             </button>
             <button
               type="submit"
-              disabled={changeDomainModal.loading}
+              disabled={changeDomainModal.loading || !changeDomainModal.domain?.trim()}
               className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
               {changeDomainModal.loading ? (
@@ -98,24 +99,39 @@ export function NewSiteModal({
   newSiteForm,
   setNewSiteForm,
   handleCreateSite,
+  newSiteError,
+  setNewSiteError,
+  creatingSite
 }) {
   if (!showNewSiteModal) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 sm:p-7">
-        <h3 className="text-lg sm:text-xl font-bold text-slate-900">Add New Website</h3>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">Register a domain to generate an embed key.</p>
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 sm:p-7 space-y-4">
+        <div>
+          <h3 className="text-lg sm:text-xl font-bold text-slate-900">Add New Website</h3>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">Register a domain to generate an embed key.</p>
+        </div>
 
-        <form onSubmit={handleCreateSite} className="mt-5 space-y-4">
+        {newSiteError && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-700">
+            {newSiteError}
+          </div>
+        )}
+
+        <form onSubmit={handleCreateSite} className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Website Name</label>
             <input
               type="text"
               required
+              maxLength={100}
               placeholder="e.g. My Online Store"
               value={newSiteForm.name}
-              onChange={(e) => setNewSiteForm({ ...newSiteForm, name: e.target.value })}
+              onChange={(e) => {
+                setNewSiteForm({ ...newSiteForm, name: e.target.value });
+                if (newSiteError) setNewSiteError('');
+              }}
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
             />
           </div>
@@ -124,26 +140,42 @@ export function NewSiteModal({
             <input
               type="text"
               required
+              maxLength={150}
               placeholder="e.g. store.com or localhost:3000"
               value={newSiteForm.domain}
-              onChange={(e) => setNewSiteForm({ ...newSiteForm, domain: e.target.value })}
+              onChange={(e) => {
+                setNewSiteForm({ ...newSiteForm, domain: e.target.value });
+                if (newSiteError) setNewSiteError('');
+              }}
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-900 focus:outline-none focus:border-[#287170] focus:ring-1 focus:ring-[#287170]/20"
             />
+            <p className="text-xs text-slate-600 mt-1">Enter hostname without protocols (e.g. example.com or localhost:3000)</p>
           </div>
 
           <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => setShowNewSiteModal(false)}
+              onClick={() => {
+                setShowNewSiteModal(false);
+                if (newSiteError) setNewSiteError('');
+              }}
               className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-semibold bg-[#287170] hover:bg-[#205d5c] text-white rounded-xl shadow-xs transition cursor-pointer"
+              disabled={creatingSite || !newSiteForm.name.trim() || !newSiteForm.domain.trim()}
+              className="px-4 py-2 text-sm font-semibold bg-[#287170] hover:bg-[#205d5c] disabled:opacity-50 text-white rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
-              Add Website
+              {creatingSite ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Adding...</span>
+                </>
+              ) : (
+                <span>Add Website</span>
+              )}
             </button>
           </div>
         </form>
@@ -167,7 +199,7 @@ export function DeleteSiteModal({
         </div>
         <h3 className="text-xl font-bold text-slate-900">Delete Website Property</h3>
         <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-          You are about to permanently delete <strong className="text-slate-900">{deleteSiteModal.site.name}</strong> ({deleteSiteModal.site.domain}). All associated conversations, feedback ratings, and visitor analytics will be permanently erased.
+          You are about to permanently delete <strong className="text-slate-900">{deleteSiteModal.site.name}</strong> ({deleteSiteModal.site.domain}). All associated conversations, feedback ratings, and bug reports will be permanently erased.
         </p>
 
         {deleteSiteModal.error && (
@@ -187,6 +219,7 @@ export function DeleteSiteModal({
                 type="password"
                 required
                 autoFocus
+                maxLength={128}
                 placeholder="Enter your admin account password"
                 value={deleteSiteModal.password}
                 onChange={(e) => setDeleteSiteModal(prev => ({ ...prev, password: e.target.value, error: '' }))}
@@ -205,7 +238,7 @@ export function DeleteSiteModal({
             </button>
             <button
               type="submit"
-              disabled={deleteSiteModal.loading || !deleteSiteModal.password}
+              disabled={deleteSiteModal.loading || !deleteSiteModal.password?.trim()}
               className="px-5 py-2.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
             >
               {deleteSiteModal.loading ? 'Verifying...' : 'Confirm & Delete'}
@@ -232,7 +265,7 @@ export function DeleteChatsModal({
         </div>
         <h3 className="text-xl font-bold text-slate-900">Delete All Conversations</h3>
         <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-          You are about to permanently delete all conversations and message transcripts for <strong className="text-slate-900">{deleteChatsModal.site.name}</strong>. Feedback ratings, bug reports, and analytics will not be affected.
+          You are about to permanently delete all conversations and message transcripts for <strong className="text-slate-900">{deleteChatsModal.site.name}</strong>. Feedback ratings and bug reports will not be affected.
         </p>
 
         {deleteChatsModal.error && (
@@ -252,6 +285,7 @@ export function DeleteChatsModal({
                 type="password"
                 required
                 autoFocus
+                maxLength={128}
                 placeholder="Enter your admin account password"
                 value={deleteChatsModal.password}
                 onChange={(e) => setDeleteChatsModal(prev => ({ ...prev, password: e.target.value, error: '' }))}
@@ -270,7 +304,7 @@ export function DeleteChatsModal({
             </button>
             <button
               type="submit"
-              disabled={deleteChatsModal.loading || !deleteChatsModal.password}
+              disabled={deleteChatsModal.loading || !deleteChatsModal.password?.trim()}
               className="px-5 py-2.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
             >
               {deleteChatsModal.loading ? 'Deleting...' : 'Confirm & Delete All Chats'}

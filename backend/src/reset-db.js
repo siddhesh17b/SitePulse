@@ -17,9 +17,6 @@ async function resetDatabase() {
     const deletedBugs = await prisma.bugReport.deleteMany({});
     console.log(`Deleted ${deletedBugs.count} bug reports`);
 
-    const deletedAnalytics = await prisma.analyticsEvent.deleteMany({});
-    console.log(`Deleted ${deletedAnalytics.count} analytics events`);
-
     const deletedSites = await prisma.site.deleteMany({});
     console.log(`Deleted ${deletedSites.count} sites`);
 

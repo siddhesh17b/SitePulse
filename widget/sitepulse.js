@@ -1,6 +1,6 @@
 /**
  * SitePulse Embeddable Widget
- * Integrated Real-time Chat, Feedback, Bug Reporting & Privacy Analytics
+ * Integrated Real-time Chat, Feedback & Bug Reporting
  */
 (function () {
   'use strict';
@@ -72,30 +72,6 @@
     if (pu.userId) externalId = String(pu.userId);
   }
 
-  // 3. Passive Privacy-Preserving Analytics Tracking
-  function trackPageView() {
-    try {
-      const payload = {
-        siteKey: siteKey,
-        pathname: window.location.pathname + window.location.search,
-        referrer: document.referrer || null,
-        browser: navigator.userAgentData ? navigator.userAgentData.brands?.[0]?.brand : 'Browser',
-        os: navigator.platform || 'Unknown',
-        deviceType: window.innerWidth < 768 ? 'mobile' : (window.innerWidth < 1024 ? 'tablet' : 'desktop')
-      };
-
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(backendUrl + '/api/v1/events', JSON.stringify(payload));
-      } else {
-        fetch(backendUrl + '/api/v1/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          keepalive: true
-        }).catch(() => {});
-      }
-    } catch (e) {}
-  }
   function isPathMatching(pattern, currentPath) {
     if (!pattern || !currentPath) return false;
     pattern = pattern.trim().toLowerCase();
@@ -153,7 +129,6 @@
   }
 
   function handleNavigationChange() {
-    trackPageView();
     const isAllowed = isCurrentPageAllowed();
     const existingContainer = document.getElementById('sitepulse-widget-root');
     if (isAllowed) {
@@ -169,7 +144,6 @@
     }
   }
 
-  trackPageView();
   window.addEventListener('popstate', handleNavigationChange);
   window.addEventListener('hashchange', handleNavigationChange);
 
@@ -399,9 +373,9 @@
         position: fixed;
         bottom: 96px;
         ${isLeft ? 'left: 24px;' : 'right: 24px;'}
-        width: 380px;
+        width: 400px;
         max-width: calc(100vw - 48px);
-        height: 560px;
+        height: 580px;
         max-height: calc(100vh - 120px);
         background: #ffffff;
         border-radius: 16px;
@@ -485,31 +459,38 @@
       .sp-nav {
         display: flex;
         background: #f8fafc;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 2px solid #e2e8f0;
       }
 
       .sp-tab-btn {
         flex: 1;
-        padding: 12px 10px;
+        padding: 15px 12px;
+        min-height: 52px;
         background: none;
         border: none;
-        border-bottom: 2px solid transparent;
-        font-size: 14.5px;
-        font-weight: 600;
+        border-bottom: 3px solid transparent;
+        font-size: 16.5px;
+        font-weight: 650;
         color: #64748b;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 8px;
         transition: all 0.15s ease;
+      }
+
+      .sp-tab-btn:hover {
+        background: #f1f5f9;
+        color: #1e293b;
       }
 
       .sp-tab-btn.active {
         color: ${contrast.activeTab};
         border-bottom-color: ${contrast.activeTab};
         background: #ffffff;
-        font-weight: 700;
+        font-weight: 750;
+        font-size: 16.5px;
       }
 
       /* Content Area */

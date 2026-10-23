@@ -29,7 +29,6 @@ model Site {
   conversations  Conversation[]
   feedbacks      Feedback[]
   bugReports     BugReport[]
-  analytics      AnalyticsEvent[]
 }
 
 model Conversation {
@@ -90,17 +89,3 @@ model BugReport {
   @@index([siteId, createdAt])
 }
 
-model AnalyticsEvent {
-  id          String   @id @default(uuid())
-  siteId      String
-  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  sessionHash String
-  pathname    String
-  referrer    String?
-  browser     String?
-  os          String?
-  deviceType  String?
-  createdAt   DateTime @default(now())
-
-  @@index([siteId, createdAt])
-}

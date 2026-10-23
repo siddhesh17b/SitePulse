@@ -207,28 +207,7 @@ async function run() {
       assert(res.status === 404, `Expected 404, got ${res.status}`);
     });
 
-    console.log('\n--- SUITE E: PRIVACY-PRESERVING ANALYTICS ---');
-    await test('Track Event: Publicly logs pageview with cookieless session hash', async () => {
-      const res = await request('POST', '/api/v1/events', {
-        siteKey: testSite.apiKey,
-        pathname: '/pricing?ref=promo',
-        referrer: 'https://google.com',
-        browser: 'Chrome 120',
-        os: 'macOS',
-        deviceType: 'desktop'
-      });
-      assert(res.status === 201, `Expected 201, got ${res.status}`);
-      assert(res.body.success, 'Event not recorded');
-    });
-
-    await test('Analytics Stats: Aggregates total pageviews and unique visitors', async () => {
-      const res = await request('GET', `/api/v1/events/stats?siteKey=${testSite.apiKey}`, null, testUserToken);
-      assert(res.status === 200, `Expected 200, got ${res.status}`);
-      assert(res.body.totalPageviews >= 1, 'Total pageviews should be at least 1');
-      assert(res.body.uniqueVisitors >= 1, 'Unique visitors should be at least 1');
-    });
-
-    console.log('\n--- SUITE F: USER FEEDBACK & BUG REPORTING ---');
+    console.log('\n--- SUITE E: USER FEEDBACK & BUG REPORTING ---');
     await test('Feedback: Visitor submits rating and comment', async () => {
       const res = await request('POST', '/api/v1/feedback', {
         siteKey: testSite.apiKey,
@@ -268,7 +247,7 @@ async function run() {
       assert(res.body[0].browser === 'Safari Mobile 17.2', 'Diagnostics browser mismatch');
     });
 
-    console.log('\n--- SUITE G: REAL-TIME CONVERSATION & SOCKET.IO GATEWAY ---');
+    console.log('\n--- SUITE F: REAL-TIME CONVERSATION & SOCKET.IO GATEWAY ---');
     await test('Conversation Init: Rejects initialization when email is missing', async () => {
       const res = await request('POST', '/api/v1/conversations/init', {
         siteKey: testSite.apiKey,
@@ -364,7 +343,7 @@ async function run() {
       assert(res.body.status === 'resolved', 'Status not marked resolved');
     });
 
-    console.log('\n--- SUITE H: PAGE TARGETING & AUTO-DISCOVERY ---');
+    console.log('\n--- SUITE G: PAGE TARGETING & AUTO-DISCOVERY ---');
     await test('Pages Discovery: Retrieves auto-discovered pages for site', async () => {
       const res = await request('GET', `/api/v1/sites/${testSite.apiKey}/pages`, null, testUserToken);
       assert(res.status === 200, `Expected 200, got ${res.status}`);
@@ -397,7 +376,7 @@ async function run() {
       assert(res.body.settings.pageRules.rules['/checkout/*'] === false, 'Page rule toggle mismatch');
     });
 
-    console.log('\n--- SUITE I: PASSWORD-PROTECTED DANGER ZONE DELETIONS ---');
+    console.log('\n--- SUITE H: PASSWORD-PROTECTED DANGER ZONE DELETIONS ---');
     await test('Delete Chats: Rejects request with incorrect password', async () => {
       const res = await request('DELETE', `/api/v1/sites/${testSite.id}/conversations`, {
         password: 'WrongPassword'

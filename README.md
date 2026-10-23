@@ -18,10 +18,10 @@ SitePulse helps website teams handle three common jobs in one unified platform:
 
 ## What Problem This Solves
 
-If you run a website, support requests, user feedback, bug reports, and page traffic data often end up fragmented across separate third-party tools. SitePulse unifies these into one cohesive workflow:
+If you run a website, support requests, user feedback, and bug reports often end up fragmented across separate third-party tools. SitePulse unifies these into one cohesive workflow:
 
 - **Visitors** interact with a single, lightweight widget on your site.
-- **Your Team** manages incoming chats, bugs, feedback, page targeting rules, and analytics in one dashboard.
+- **Your Team** manages incoming chats, bugs, feedback, and page targeting rules in one dashboard.
 - **Data Integrity** is preserved in a single, high-performance PostgreSQL database.
 
 ---
@@ -35,7 +35,6 @@ If you run a website, support requests, user feedback, bug reports, and page tra
 - **Dynamic Widget Customizer**: Real-time styling (primary color, greeting, titles, feature toggles).
 - **Page Rules & Display Targeting**: Enable or disable the widget on specific paths or wildcard patterns (`/products/*`, `/checkout`).
 - **Web Crawler & Auto-Discovery**: Discovers internal pages via traffic logs, robots.txt, and XML sitemaps.
-- **Cookieless Analytics**: Daily rotating SHA-256 session hashes tracking pageviews, unique visitors, and top pages via database-level `groupBy` aggregation.
 - **Multi-Tenant Architecture**: Multi-site management per account with password-protected danger zone actions (site deletion & chat purge).
 - **Security & Reliability**: Route-specific CORS policies, Helmet HTTP security headers, Pino structured JSON logging, and `X-Request-ID` request tracing.
 
@@ -77,7 +76,6 @@ Update your `backend/.env` with your local credentials:
 PORT=5000
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sitepulse?schema=public"
 JWT_SECRET="your-super-secret-jwt-key"
-DAILY_SALT="your-privacy-salt-for-analytics"
 ```
 
 ### 3. Initialize Database Schema
@@ -199,7 +197,6 @@ Using the production [`Dockerfile`](Dockerfile):
    ```env
    DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
    JWT_SECRET="generate-a-secure-random-32-char-secret"
-   DAILY_SALT="generate-a-random-salt-for-cookieless-analytics"
    NODE_ENV="production"
    ```
 4. **Deploy**:
@@ -223,7 +220,6 @@ For website owners hosting on their own Linux VPS (DigitalOcean Droplet, Hetzner
    POSTGRES_PASSWORD=your_strong_db_password
    POSTGRES_DB=sitepulse
    JWT_SECRET=your_super_secret_jwt_key
-   DAILY_SALT=your_privacy_analytics_salt
    ```
 3. **Start the Stack**:
    ```bash
@@ -314,4 +310,3 @@ docker compose up --build
 - **Live Conversations**: `/api/v1/conversations`, `/api/v1/conversations/init`, `/api/v1/conversations/:id/messages`
 - **Feedback Collection**: `/api/v1/feedback`
 - **Bug Reporting**: `/api/v1/bugs`
-- **Privacy Analytics**: `/api/v1/events`, `/api/v1/events/stats`

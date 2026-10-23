@@ -6,6 +6,8 @@ export function useSites(token, user, onConversationsCleared) {
   const [activeSite, setActiveSite] = useState(null);
   const [showNewSiteModal, setShowNewSiteModal] = useState(false);
   const [newSiteForm, setNewSiteForm] = useState({ name: '', domain: '' });
+  const [newSiteError, setNewSiteError] = useState('');
+  const [creatingSite, setCreatingSite] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
 
   // Site Details form (Website Property Settings)
@@ -74,15 +76,46 @@ export function useSites(token, user, onConversationsCleared) {
   // Create Site
   const handleCreateSite = async (e) => {
     e.preventDefault();
-    if (!newSiteForm.name || !newSiteForm.domain) return;
+    setNewSiteError('');
+
+    const name = (newSiteForm.name || '').trim();
+    let domain = (newSiteForm.domain || '').trim();
+
+    if (!name) {
+      setNewSiteError('Website name is required.');
+      return;
+    }
+    if (name.length < 2 || name.length > 100) {
+      setNewSiteError('Website name must be between 2 and 100 characters.');
+      return;
+    }
+
+    if (!domain) {
+      setNewSiteError('Domain URL is required.');
+      return;
+    }
+
+    // Auto-strip http:// or https:// and trailing slash
+    domain = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+    const DOMAIN_REGEX = /^[a-zA-Z0-9.-]+(:\d+)?$/;
+    if (!domain || !DOMAIN_REGEX.test(domain) || domain.includes('/') || domain.includes(' ')) {
+      setNewSiteError('Please enter a valid domain or host without paths or spaces (e.g. store.com or localhost:3000).');
+      return;
+    }
+
+    setCreatingSite(true);
     try {
-      const created = await sitesApi.create(newSiteForm);
+      const created = await sitesApi.create({ name, domain });
       setSites(prev => [created, ...prev]);
       setActiveSite(created);
       setShowNewSiteModal(false);
       setNewSiteForm({ name: '', domain: '' });
+      setNewSiteError('');
     } catch (e) {
-      alert(e.message);
+      setNewSiteError(e.message || 'Failed to create website property.');
+    } finally {
+      setCreatingSite(false);
     }
   };
 
@@ -90,8 +123,13 @@ export function useSites(token, user, onConversationsCleared) {
   const handleUpdateSiteName = async (e) => {
     e.preventDefault();
     if (!activeSite || !token || savingSiteDetails) return;
-    if (!siteDetailsForm.name.trim()) {
+    const trimmedName = (siteDetailsForm.name || '').trim();
+    if (!trimmedName) {
       setSiteDetailsMessage({ type: 'error', text: 'Website name cannot be empty.' });
+      return;
+    }
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      setSiteDetailsMessage({ type: 'error', text: 'Website name must be between 2 and 100 characters.' });
       return;
     }
 
@@ -99,7 +137,7 @@ export function useSites(token, user, onConversationsCleared) {
     setSiteDetailsMessage(null);
     try {
       const data = await sitesApi.update(activeSite.id, {
-        name: siteDetailsForm.name.trim()
+        name: trimmedName
       });
       if (data.site) {
         setActiveSite(data.site);
@@ -131,9 +169,23 @@ export function useSites(token, user, onConversationsCleared) {
   const handleConfirmChangeDomain = async (e) => {
     e.preventDefault();
     if (!activeSite || !token || changeDomainModal.loading) return;
-    const newDomain = changeDomainModal.domain.trim();
+    let newDomain = (changeDomainModal.domain || '').trim();
     if (!newDomain) {
       setChangeDomainModal(prev => ({ ...prev, error: 'Domain URL cannot be empty.' }));
+      return;
+    }
+
+    // Auto-strip http:// or https:// and trailing slash
+    newDomain = newDomain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+    const DOMAIN_REGEX = /^[a-zA-Z0-9.-]+(:\d+)?$/;
+    if (!newDomain || !DOMAIN_REGEX.test(newDomain) || newDomain.includes('/') || newDomain.includes(' ')) {
+      setChangeDomainModal(prev => ({ ...prev, error: 'Please enter a valid domain or host without paths or spaces (e.g. store.com or localhost:3000).' }));
+      return;
+    }
+
+    if (newDomain.toLowerCase() === activeSite.domain.toLowerCase()) {
+      setChangeDomainModal(prev => ({ ...prev, error: 'New domain must be different from current domain.' }));
       return;
     }
 
@@ -169,14 +221,15 @@ export function useSites(token, user, onConversationsCleared) {
   const handleConfirmDeleteSite = async (e) => {
     e.preventDefault();
     if (!deleteSiteModal.site || !token) return;
-    if (!deleteSiteModal.password) {
+    const password = (deleteSiteModal.password || '').trim();
+    if (!password) {
       setDeleteSiteModal(prev => ({ ...prev, error: 'Please enter your admin password' }));
       return;
     }
 
     setDeleteSiteModal(prev => ({ ...prev, loading: true, error: '' }));
     try {
-      await sitesApi.delete(deleteSiteModal.site.id, deleteSiteModal.password);
+      await sitesApi.delete(deleteSiteModal.site.id, password);
       const remaining = sites.filter(s => s.id !== deleteSiteModal.site.id);
       setSites(remaining);
       if (activeSite?.id === deleteSiteModal.site.id) {
@@ -208,14 +261,15 @@ export function useSites(token, user, onConversationsCleared) {
   const handleConfirmDeleteChats = async (e) => {
     e.preventDefault();
     if (!deleteChatsModal.site || !token) return;
-    if (!deleteChatsModal.password) {
+    const password = (deleteChatsModal.password || '').trim();
+    if (!password) {
       setDeleteChatsModal(prev => ({ ...prev, error: 'Please enter your admin password' }));
       return;
     }
 
     setDeleteChatsModal(prev => ({ ...prev, loading: true, error: '' }));
     try {
-      await sitesApi.clearConversations(deleteChatsModal.site.id, deleteChatsModal.password);
+      await sitesApi.clearConversations(deleteChatsModal.site.id, password);
       if (typeof onConversationsCleared === 'function') {
         onConversationsCleared();
       }
@@ -248,6 +302,9 @@ export function useSites(token, user, onConversationsCleared) {
     setShowNewSiteModal,
     newSiteForm,
     setNewSiteForm,
+    newSiteError,
+    setNewSiteError,
+    creatingSite,
     handleCreateSite,
     siteDetailsForm,
     setSiteDetailsForm,

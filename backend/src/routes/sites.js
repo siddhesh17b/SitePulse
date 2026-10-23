@@ -11,7 +11,7 @@ const {
   deleteChatsSchema
 } = require('../schemas/sites.schema');
 
-// Utility: Normalize pathnames consistently across crawler and analytics
+// Utility: Normalize pathnames consistently across crawler and page rules
 function normalizePathname(urlOrPath, baseOrigin) {
   try {
     if (!urlOrPath) return '/';
@@ -267,14 +267,6 @@ router.get('/:siteKey/pages', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized to view pages for this site' });
     }
 
-    // 1. Get distinct pages from recent analytics events (capped for performance)
-    const events = await prisma.analyticsEvent.findMany({
-      where: { siteId: site.id },
-      select: { pathname: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-      take: 2000
-    });
-
     const pageMap = new Map();
 
     // Always include root /
@@ -285,25 +277,7 @@ router.get('/:siteKey/pages', authMiddleware, async (req, res) => {
       views: 0
     });
 
-    events.forEach(e => {
-      const clean = normalizePathname(e.pathname);
-      if (!pageMap.has(clean)) {
-        pageMap.set(clean, {
-          path: clean,
-          source: 'traffic',
-          lastSeen: e.createdAt,
-          views: 1
-        });
-      } else {
-        const item = pageMap.get(clean);
-        item.views = (item.views || 0) + 1;
-        if (new Date(e.createdAt) > new Date(item.lastSeen)) {
-          item.lastSeen = e.createdAt;
-        }
-      }
-    });
-
-    // 2. Add crawler-discovered pages from widgetSettings
+    // 1. Add crawler-discovered pages from widgetSettings
     const settings = site.widgetSettings || {};
     const pageRules = settings.pageRules || {
       enabled: true,

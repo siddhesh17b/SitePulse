@@ -81,6 +81,7 @@ export default function AuthView({
                     <input
                       type="text"
                       required
+                      maxLength={100}
                       value={authForm.name}
                       onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
                       placeholder="e.g. Sarah Connor"
@@ -99,6 +100,7 @@ export default function AuthView({
                   <input
                     type="email"
                     required
+                    maxLength={120}
                     value={authForm.email}
                     onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
                     placeholder="admin@example.com"
@@ -117,6 +119,7 @@ export default function AuthView({
                     type="password"
                     required
                     minLength={8}
+                    maxLength={128}
                     value={authForm.password}
                     onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                     placeholder={authMode === 'signup' ? '•••••••• (min. 8 characters)' : '••••••••'}
@@ -136,6 +139,7 @@ export default function AuthView({
                       type="password"
                       required
                       minLength={8}
+                      maxLength={128}
                       value={authForm.confirmPassword}
                       onChange={(e) => setAuthForm({ ...authForm, confirmPassword: e.target.value })}
                       placeholder="Retype password to confirm"

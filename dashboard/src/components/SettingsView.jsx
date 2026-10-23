@@ -73,6 +73,7 @@ export default function SettingsView({
               <input
                 type="text"
                 required
+                maxLength={100}
                 value={siteDetailsForm.name}
                 onChange={(e) => setSiteDetailsForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g. My Online Store"
@@ -122,7 +123,7 @@ export default function SettingsView({
           <div className="flex justify-end pt-1">
             <button
               type="submit"
-              disabled={savingSiteDetails}
+              disabled={savingSiteDetails || !siteDetailsForm.name?.trim()}
               className="px-5 py-2.5 bg-[#287170] hover:bg-[#205d5c] text-white text-sm font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
               title="Save updated website name"
             >
@@ -270,7 +271,7 @@ export default function SettingsView({
             <div>
               <h4 className="text-sm font-semibold text-slate-900">Clear Conversations</h4>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Permanently clear all visitor conversation threads and messages for this site. Feedback and analytics remain intact.
+                Permanently clear all visitor conversation threads and messages for this site. Feedback and bug reports remain intact.
               </p>
             </div>
             <button

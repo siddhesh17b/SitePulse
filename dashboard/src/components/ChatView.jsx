@@ -32,58 +32,58 @@ export default function ChatView({
 }) {
   return (
     <div className="flex h-full min-w-0">
-      <div className={`w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex flex-col shrink-0 ${mobileChatView ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`w-full md:w-88 lg:w-[400px] border-r border-slate-200 bg-white flex flex-col shrink-0 ${mobileChatView ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
             Conversations ({filteredConversations.length})
           </span>
           <button 
             onClick={fetchConversations} 
-            className="text-xs sm:text-sm text-[#287170] hover:text-[#205d5c] font-semibold transition cursor-pointer"
+            className="text-sm text-[#287170] hover:text-[#205d5c] font-bold transition cursor-pointer"
             title="Fetch latest conversations and messages"
           >
             Refresh
           </button>
         </div>
 
-        {/* Search & Status Filters */}
-        <div className="p-3.5 border-b border-slate-100 space-y-2.5">
+        {/* Search & Status Filter Tab Buttons */}
+        <div className="p-3.5 border-b border-slate-100 space-y-3">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
             <input
               type="text"
               placeholder="Search visitor, email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 text-sm pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:bg-white focus:border-[#287170] font-medium placeholder-slate-400"
+              className="w-full bg-slate-50 text-[15px] pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:bg-white focus:border-[#287170] font-medium placeholder-slate-400"
               title="Search conversations by email, visitor ID, or message text"
             />
           </div>
-          <div className="flex gap-1.5 text-xs overflow-x-auto pb-0.5">
+          <div className="flex gap-2 text-sm overflow-x-auto pb-0.5">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'all' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition shrink-0 cursor-pointer ${statusFilter === 'all' ? 'bg-[#287170] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}`}
               title="Show all conversations"
             >
               All ({conversations.length})
             </button>
             <button
               onClick={() => setStatusFilter('unread')}
-              className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'unread' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition shrink-0 cursor-pointer ${statusFilter === 'unread' ? 'bg-[#287170] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}`}
               title="Show conversations with unread visitor messages"
             >
               Unread ({conversations.filter(c => (unreadCounts[c.id] || 0) > 0).length})
             </button>
             <button
               onClick={() => setStatusFilter('open')}
-              className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'open' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition shrink-0 cursor-pointer ${statusFilter === 'open' ? 'bg-[#287170] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}`}
               title="Show open conversations"
             >
               Open ({conversations.filter(c => c.status !== 'resolved').length})
             </button>
             <button
               onClick={() => setStatusFilter('resolved')}
-              className={`px-3 py-1 rounded-lg font-semibold transition shrink-0 cursor-pointer ${statusFilter === 'resolved' ? 'bg-[#287170] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition shrink-0 cursor-pointer ${statusFilter === 'resolved' ? 'bg-[#287170] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}`}
               title="Show resolved conversations"
             >
               Resolved ({conversations.filter(c => c.status === 'resolved').length})
